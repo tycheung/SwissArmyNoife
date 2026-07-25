@@ -1,0 +1,16 @@
+[package]
+name = "vault"
+description = "SwissArmyNoife secret vault (AEAD encrypt/decrypt)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chacha20poly1305 = "0.10"
+rand = "0.8"
+thiserror = { workspace = true }
+zeroize = { version = "1.8", features = ["derive"] }
+
+[lints]
+workspace = true

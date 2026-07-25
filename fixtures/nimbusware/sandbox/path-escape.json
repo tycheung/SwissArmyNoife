@@ -1,0 +1,19 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "sandbox.exec",
+  "source": "hand-authored path escape case (sak159-a)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000001",
+    "invoke_id": "00000000-0000-0000-0000-000000000002",
+    "offer": "sandbox.exec",
+    "args": {
+      "argv": ["echo", "x"],
+      "cwd": ".."
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "sandbox.violation",
+    "message_contains": "sandbox.violation:path_escape"
+  }
+}

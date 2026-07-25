@@ -1,0 +1,16 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "memory.index",
+  "source": "hand-authored; fingerprint skip on identical corpus",
+  "backend": "exact",
+  "documents": [
+    {"id": "1", "text": "fingerprint skip corpus alpha"},
+    {"id": "2", "text": "fingerprint skip corpus beta"}
+  ],
+  "scope_key": "golden-skip",
+  "expect": {
+    "status": "ok",
+    "first_rebuilt": true,
+    "second_rebuilt": false
+  }
+}

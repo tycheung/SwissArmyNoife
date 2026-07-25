@@ -1,0 +1,20 @@
+[package]
+name = "offer-capacity"
+description = "SwissArmyNoife capacity.* probe / governor / pressure / fit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+control = { path = "../control" }
+types = { path = "../types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sysinfo = "0.33"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true

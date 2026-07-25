@@ -1,0 +1,26 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "llm.chat",
+  "source": "hand-authored echo routing sample (sak142-a)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000001",
+    "invoke_id": "00000000-0000-0000-0000-000000000002",
+    "offer": "llm.chat",
+    "args": {
+      "messages": [
+        { "role": "user", "content": "hello" }
+      ],
+      "model": "echo"
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "result": {
+      "text": "echo:hello"
+    },
+    "routing": {
+      "provider": "echo",
+      "backend_env": "LLM_BACKEND=echo"
+    }
+  }
+}

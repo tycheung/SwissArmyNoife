@@ -1,0 +1,31 @@
+//! OpenAPI stub presence (`sak323-a`).
+
+#[test]
+fn sak_admin_openapi_stub_exists() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/openapi/sak-admin.v0.yaml");
+    // Workspace layout: SwissArmyNoife/crates/http → docs is at Agentic/docs
+    let alt = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../docs/openapi/sak-admin.v0.yaml");
+    let path = if path.is_file() { path } else { alt };
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("missing openapi stub at {}: {e}", path.display()));
+    assert!(text.contains("openapi:"));
+    assert!(text.contains("/health"));
+    assert!(text.contains("/v1/sak/health"));
+    assert!(text.contains("/v1/sak/capacity"));
+    assert!(text.contains("/v1/sak/compute/work"));
+    assert!(text.contains("/v1/sak/compute/nodes"));
+    assert!(text.contains("enum: [enqueue, claim, complete, get, list, requeue]"));
+    assert!(text.contains("enum: [register, heartbeat, list]"));
+    assert!(text.contains("session_id:"));
+    assert!(text.contains("run_id:"));
+    assert!(text.contains("stage_name:"));
+    assert!(text.contains("stale_secs:"));
+    assert!(text.contains("COMPUTE_QUEUE=sqlite"));
+    assert!(text.contains("sak429") || text.contains("sak428"));
+    assert!(text.contains("ComputeWorkListResponse"));
+    assert!(text.contains("ComputeNodeListResponse"));
+    assert!(text.contains("/v1/sak/bindings"));
+    assert!(text.contains("/v1/sak/metrics"));
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "memory.search",
+  "source": "hand-authored; FAISS catalog stub (exact stand-in until FFI)",
+  "backend": "faiss",
+  "documents": [
+    {"id": "faiss-a", "text": "faiss stub memory index search"},
+    {"id": "faiss-b", "text": "noise document about weather"}
+  ],
+  "request": {
+    "binding_id": "00000000-0000-4000-8000-000000000003",
+    "args": {
+      "query": "faiss memory",
+      "k": 1
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "backend": "faiss",
+    "top_id_prefix": "faiss-a",
+    "excerpt_contains": "faiss"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@swissarmynoife/sdk",
+  "version": "0.1.0",
+  "description": "SwissArmyNoife TypeScript SDK (HTTP admin client skeleton)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/mcp.test.js dist/index.test.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.0"
+  },
+  "license": "Apache-2.0"
+}

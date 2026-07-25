@@ -1,0 +1,21 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "llm.chat",
+  "source": "hand-authored placeholder pending Nimbusware dual-run export",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000001",
+    "invoke_id": "00000000-0000-0000-0000-000000000002",
+    "offer": "llm.chat",
+    "args": {
+      "messages": [
+        { "role": "user", "content": "ping" }
+      ],
+      "model": "fixture-model"
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "result_keys": ["text"],
+    "notes": "Full result body filled when llm.chat offer lands; this file only locks request shape."
+  }
+}

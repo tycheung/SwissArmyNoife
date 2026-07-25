@@ -1,0 +1,24 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "network.egress.check",
+  "source": "hand-authored; response byte cap contract (enforced on fetch path)",
+  "request": {
+    "binding_id": "00000000-0000-4000-8000-000000000003",
+    "args": {
+      "url": "https://api.example.com/large"
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "budget.exhausted",
+    "note": "Body larger than policy.egress.max_response_bytes"
+  },
+  "bind_policy": {
+    "egress": {
+      "allow_hosts": ["api.example.com"],
+      "allow_principals": ["local"],
+      "max_response_bytes": 8
+    }
+  },
+  "synthetic_body_bytes": 16
+}

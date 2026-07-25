@@ -1,0 +1,27 @@
+{
+  "name": "memory-search-empty",
+  "version": 1,
+  "steps": [
+    {
+      "tool": "ping",
+      "expect_contains": ["ok"]
+    },
+    {
+      "tool": "session_bind",
+      "arguments": {
+        "offer_ids": ["memory.search"],
+        "principal": "local",
+        "ttl_secs": 60
+      },
+      "expect_contains": ["bindings", "memory.search"]
+    },
+    {
+      "tool": "memory_search",
+      "arguments": {
+        "binding_id": "$memory.search",
+        "query": "no-indexed-documents"
+      },
+      "expect_contains": ["\"hits\":[]", "query"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "swissarmynoife": {
+      "command": "D:/Agentic/SwissArmyNoife/target/debug/mcp.exe",
+      "args": []
+    }
+  }
+}

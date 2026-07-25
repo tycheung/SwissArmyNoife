@@ -1,0 +1,19 @@
+[package]
+name = "compute-worker"
+description = "SwissArmyNoife minimal compute worker (claim → echo → complete)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "compute-worker"
+path = "src/main.rs"
+
+[dependencies]
+offer-compute = { path = "../offer-compute" }
+serde_json = { workspace = true }
+types = { path = "../types" }
+
+[lints]
+workspace = true

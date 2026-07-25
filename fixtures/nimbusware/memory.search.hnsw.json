@@ -1,0 +1,22 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "memory.search",
+  "source": "hand-authored; HnswLite ranking smoke",
+  "backend": "hnsw",
+  "documents": [
+    {"id": "hnsw-a", "text": "vector hnsw memory neighbor query"},
+    {"id": "hnsw-b", "text": "totally different cooking recipes"}
+  ],
+  "request": {
+    "binding_id": "00000000-0000-4000-8000-000000000002",
+    "args": {
+      "query": "hnsw memory",
+      "k": 1
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "top_id_prefix": "hnsw-a",
+    "excerpt_contains": "hnsw"
+  }
+}

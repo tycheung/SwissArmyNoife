@@ -1,0 +1,22 @@
+[package]
+name = "offer-egress"
+description = "SwissArmyNoife network.egress helpers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+control = { path = "../control" }
+types = { path = "../types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+wiremock = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "runtime-wasm"
+description = "SwissArmyNoife Wasmtime module loader (wasm-first)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+types = { path = "../types" }
+sha2 = { workspace = true }
+wasmtime = { version = "28", default-features = false, features = ["cranelift", "runtime"] }
+wat = "1.220"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

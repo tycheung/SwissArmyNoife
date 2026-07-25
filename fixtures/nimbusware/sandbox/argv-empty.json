@@ -1,0 +1,19 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "sandbox.exec",
+  "source": "hand-authored empty argv case (sak159-b)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000003",
+    "invoke_id": "00000000-0000-0000-0000-000000000004",
+    "offer": "sandbox.exec",
+    "args": {
+      "argv": [],
+      "cwd": "."
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "schema.invalid",
+    "message_contains": "argv must be non-empty"
+  }
+}

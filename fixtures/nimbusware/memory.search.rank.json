@@ -1,0 +1,22 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "memory.search",
+  "source": "hand-authored; ranking parity smoke (hash token embed)",
+  "backend": "exact",
+  "documents": [
+    {"id": "doc-a", "text": "swiss army knife memory search ranking"},
+    {"id": "doc-b", "text": "unrelated gardening tomato tips"}
+  ],
+  "request": {
+    "binding_id": "00000000-0000-4000-8000-000000000001",
+    "args": {
+      "query": "memory search",
+      "k": 1
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "top_id_prefix": "doc-a",
+    "excerpt_contains": "memory"
+  }
+}

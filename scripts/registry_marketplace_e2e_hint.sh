@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Registry → marketplace E2E operator hints (sak367-b)
+# Prints the manual checklist commands from docs/module-registry-marketplace-e2e.md.
+# Does not start servers or require live services. Always exits 0.
+# Usage: from SwissArmyNoife/:  ./scripts/registry_marketplace_e2e_hint.sh
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+AGENTIC_ROOT="$(cd "${ROOT}/.." && pwd)"
+API_ROOT="${AGENTIC_ROOT}/marketplace-api"
+API_BASE="http://127.0.0.1:8790"
+
+echo "== registry marketplace E2E hints (sak367-b) =="
+echo "Doc: docs/module-registry-marketplace-e2e.md"
+echo ""
+echo "1. Start marketplace-api:"
+echo "  cd ${API_ROOT}"
+echo "  cargo run -p marketplace-api"
+echo "  curl -sf ${API_BASE}/health"
+echo ""
+echo "2. Publish (account + module; replace ARTIFACT / TOKEN):"
+echo "  curl -s -X POST ${API_BASE}/v1/accounts \\"
+echo "    -H 'Content-Type: application/json' \\"
+echo "    -d '{\"display_name\":\"e2e-publisher\"}'"
+echo "  # POST ${API_BASE}/v1/modules with Authorization + artifact_base64"
+echo ""
+echo "3. Resolve:"
+echo "  curl -s ${API_BASE}/v1/modules/community.echo"
+echo "  curl -s ${API_BASE}/v1/modules/community.echo/latest"
+echo ""
+echo "4. Install (broker):"
+echo "  cd ${ROOT}"
+echo "  cargo run -p cli -- module install --registry ${API_BASE} community.echo"
+echo "  cargo run -p cli -- module list"
+echo ""
+echo "5. CLI invoke (optional):"
+echo "  cargo run -p cli -- module invoke community.echo 2 3"
+echo ""
+echo "6. MCP invoke:"
+echo "  cargo run -p mcp"
+echo "  # Cursor: module_list then module_invoke community.echo add {a:2,b:3}"
+echo ""
+echo "Offline CI guard (no live API):"
+echo "  cargo test -p module-registry registry_download_install_invoke"
+echo ""
+echo "registry_marketplace_e2e_hint: OK (hints only; no services required)"
+exit 0

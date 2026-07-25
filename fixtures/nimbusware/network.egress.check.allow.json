@@ -1,0 +1,24 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "network.egress.check",
+  "source": "hand-authored; Nimbusware executor egress allow parity",
+  "request": {
+    "binding_id": "00000000-0000-4000-8000-000000000001",
+    "args": {
+      "url": "https://api.example.com/v1"
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "result": {
+      "allowed": true,
+      "host": "api.example.com"
+    }
+  },
+  "bind_policy": {
+    "egress": {
+      "allow_hosts": ["api.example.com"],
+      "allow_principals": ["local"]
+    }
+  }
+}

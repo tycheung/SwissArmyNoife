@@ -1,0 +1,11 @@
+id = "community.echo"
+version = "0.1.0"
+api_version = "sak.v0"
+origin = "community"
+runtime = "wasm"
+min_broker_version = "0.1.0"
+payload = "module.wat"
+
+[[permissions]]
+name = "fs.read"
+optional = true

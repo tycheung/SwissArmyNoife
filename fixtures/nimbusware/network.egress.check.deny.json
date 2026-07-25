@@ -1,0 +1,21 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "network.egress.check",
+  "source": "hand-authored; Nimbusware executor egress deny parity",
+  "request": {
+    "binding_id": "00000000-0000-4000-8000-000000000002",
+    "args": {
+      "url": "https://evil.example/x"
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "egress.denied"
+  },
+  "bind_policy": {
+    "egress": {
+      "allow_hosts": ["api.example.com"],
+      "allow_principals": ["local"]
+    }
+  }
+}

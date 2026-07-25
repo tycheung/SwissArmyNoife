@@ -1,0 +1,29 @@
+[package]
+name = "offer-memory"
+description = "SwissArmyNoife memory.* helpers (chunk, hash, scope, index)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+# Future native FAISS FFI (`sak222b-g`) — empty sketch; default builds stay FFI-free.
+faiss-ffi = []
+
+[dependencies]
+control = { path = "../control" }
+provider-core = { path = "../provider-core" }
+persist-sqlite = { path = "../persist-sqlite" }
+types = { path = "../types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+rusqlite = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

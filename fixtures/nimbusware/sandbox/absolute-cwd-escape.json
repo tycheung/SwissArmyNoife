@@ -1,0 +1,19 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "sandbox.exec",
+  "source": "hand-authored absolute cwd outside jail (sak159-c)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000005",
+    "invoke_id": "00000000-0000-0000-0000-000000000006",
+    "offer": "sandbox.exec",
+    "args": {
+      "argv": ["echo", "x"],
+      "cwd": "/etc/passwd"
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "sandbox.violation",
+    "message_contains": "sandbox.violation:path_escape"
+  }
+}

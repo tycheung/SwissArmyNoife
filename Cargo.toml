@@ -1,0 +1,89 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cli",
+    "crates/types",
+    "crates/control",
+    "crates/persist-sqlite",
+    "crates/persist-postgres",
+    "crates/env",
+    "crates/vault",
+    "crates/mcp",
+    "crates/provider-core",
+    "crates/provider-ollama",
+    "crates/provider-openai",
+    "crates/provider-anthropic",
+    "crates/offer-llm",
+    "crates/offer-sandbox",
+    "crates/offer-tools",
+    "crates/offer-egress",
+    "crates/offer-memory",
+    "crates/offer-research",
+    "crates/offer-capacity",
+    "crates/offer-compute",
+    "crates/compute-worker",
+    "crates/module-manifest",
+    "crates/module-registry",
+    "crates/runtime-wasm",
+    "crates/runtime-process",
+    "crates/http",
+    "crates/sdk",
+    "xtask",
+]
+default-members = [
+    "crates/cli",
+    "crates/types",
+    "crates/control",
+    "crates/persist-sqlite",
+    "crates/env",
+    "crates/vault",
+    "crates/mcp",
+    "crates/http",
+    "crates/sdk",
+    "crates/provider-core",
+    "crates/provider-ollama",
+    "crates/provider-openai",
+    "crates/provider-anthropic",
+    "crates/offer-llm",
+    "crates/offer-sandbox",
+    "crates/offer-tools",
+    "crates/offer-egress",
+    "crates/offer-memory",
+    "crates/offer-research",
+    "crates/offer-capacity",
+    "crates/offer-compute",
+    "crates/compute-worker",
+    "crates/module-manifest",
+    "crates/module-registry",
+    "crates/runtime-wasm",
+    "crates/runtime-process",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/example/SwissArmyNoife"
+rust-version = "1.75"
+
+[workspace.dependencies]
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["registry"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+schemars = { version = "0.8", features = ["uuid1"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.14"
+thiserror = "2.0"
+tokio = { version = "1.43", features = ["macros", "rt", "rt-multi-thread", "io-std"] }
+uuid = { version = "1.11", features = ["v4", "serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+wiremock = "0.6"
+sha2 = "0.10"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

@@ -1,0 +1,33 @@
+{
+  "name": "llm-chat-echo",
+  "version": 1,
+  "steps": [
+    {
+      "tool": "ping",
+      "expect_contains": ["ok"]
+    },
+    {
+      "tool": "session_bind",
+      "arguments": {
+        "offer_ids": ["llm.chat"],
+        "principal": "local",
+        "ttl_secs": 60
+      },
+      "expect_contains": ["bindings", "llm.chat"]
+    },
+    {
+      "tool": "llm_chat",
+      "arguments": {
+        "binding_id": "$llm.chat",
+        "messages": [
+          {
+            "role": "user",
+            "content": "ping"
+          }
+        ],
+        "model": "fixture"
+      },
+      "expect_contains": ["echo:ping", "text"]
+    }
+  ]
+}

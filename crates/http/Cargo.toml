@@ -1,0 +1,38 @@
+[package]
+name = "http-admin"
+description = "SwissArmyNoife local HTTP admin (installed modules)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "http-admin"
+path = "src/main.rs"
+
+[features]
+default = []
+# Optional Postgres catalog persist (`sak070` Phase B).
+postgres = ["dep:persist-postgres", "persist-postgres/postgres"]
+
+[dependencies]
+axum = "0.8"
+control = { path = "../control" }
+module-registry = { path = "../module-registry" }
+offer-capacity = { path = "../offer-capacity" }
+offer-compute = { path = "../offer-compute" }
+persist-postgres = { path = "../persist-postgres", optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+types = { path = "../types" }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+# Generated / local
+/target/
+/target-alt/
+.run/
+.sak-run/
+**/*.rs.bk
+.sak/
+sak.db
+sak.db-*
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Python sdks (later)
+**/__pycache__/
+*.egg-info/
+.venv/
+
+# Node sdks (later)
+node_modules/
+dist/

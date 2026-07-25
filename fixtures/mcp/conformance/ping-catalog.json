@@ -1,0 +1,14 @@
+{
+  "name": "ping-catalog-smoke",
+  "version": 1,
+  "steps": [
+    {
+      "tool": "ping",
+      "expect_contains": ["ok"]
+    },
+    {
+      "tool": "catalog_list",
+      "expect_contains": ["broker.health", "llm.chat", "llm.telemetry"]
+    }
+  ]
+}

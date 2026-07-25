@@ -1,0 +1,27 @@
+{
+  "schema": "sak.fixture.nimbusware/v0",
+  "offer": "llm.chat",
+  "source": "hand-authored vault.missing routing sample (sak142-c)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000003",
+    "invoke_id": "00000000-0000-0000-0000-000000000004",
+    "offer": "llm.chat",
+    "args": {
+      "messages": [
+        { "role": "user", "content": "hello" }
+      ],
+      "connection_id": "conn-missing",
+      "model": "gpt-4o-mini"
+    }
+  },
+  "expect": {
+    "status": "error",
+    "error": {
+      "code": "vault.missing"
+    },
+    "routing": {
+      "provider": "openai",
+      "connection_id": "conn-missing"
+    }
+  }
+}
