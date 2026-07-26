@@ -1,14 +1,14 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "sandbox.exec",
-  "source": "hand-authored path escape case (sak159-a)",
+  "source": "hand-authored absolute cwd outside jail (sak159-c)",
   "request": {
-    "binding_id": "00000000-0000-0000-0000-000000000001",
-    "invoke_id": "00000000-0000-0000-0000-000000000002",
+    "binding_id": "00000000-0000-0000-0000-000000000005",
+    "invoke_id": "00000000-0000-0000-0000-000000000006",
     "offer": "sandbox.exec",
     "args": {
       "argv": ["echo", "x"],
-      "cwd": ".."
+      "cwd": "/etc/passwd"
     }
   },
   "expect": {

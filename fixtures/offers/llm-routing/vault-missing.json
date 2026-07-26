@@ -1,5 +1,5 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "llm.chat",
   "source": "hand-authored vault.missing routing sample (sak142-c)",
   "request": {

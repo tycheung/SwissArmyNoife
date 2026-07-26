@@ -5,13 +5,13 @@ use offer_sandbox::{ExecRequest, NoneBackend, SandboxBackend, SandboxExecOffer, 
 use serde_json::json;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use types::{load_nimbus_fixture, BindingId, ErrorCode, InvokeReq, InvokeResp};
+use types::{load_offer_fixture, BindingId, ErrorCode, InvokeReq, InvokeResp};
 
 #[test]
 fn path_escape_fixture_expectation_string() {
-    let fix = load_nimbus_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/path-escape.json")
+    let fix = load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/path-escape.json")
         .expect("fixture");
-    assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+    assert_eq!(fix["schema"], "sak.fixture.offer/v0");
     let needle = fix["expect"]["message_contains"]
         .as_str()
         .expect("message_contains");
@@ -31,9 +31,9 @@ fn path_escape_fixture_expectation_string() {
 
 #[tokio::test]
 async fn argv_empty_fixture_schema_invalid() {
-    let fix = load_nimbus_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/argv-empty.json")
+    let fix = load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/argv-empty.json")
         .expect("fixture");
-    assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+    assert_eq!(fix["schema"], "sak.fixture.offer/v0");
     let needle = fix["expect"]["message_contains"]
         .as_str()
         .expect("message_contains");
@@ -73,12 +73,12 @@ fn outside_jail_absolute_cwd() -> PathBuf {
 
 #[test]
 fn absolute_cwd_escape_fixture_expectation_string() {
-    let fix = load_nimbus_fixture(
+    let fix = load_offer_fixture(
         env!("CARGO_MANIFEST_DIR"),
         "sandbox/absolute-cwd-escape.json",
     )
     .expect("fixture");
-    assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+    assert_eq!(fix["schema"], "sak.fixture.offer/v0");
     let needle = fix["expect"]["message_contains"]
         .as_str()
         .expect("message_contains");

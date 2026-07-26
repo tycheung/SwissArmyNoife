@@ -3,7 +3,7 @@
 use offer_llm::{resolve, ConnectionRef, EchoChatProvider, ResolveHint};
 use provider_core::{ChatMessage, ChatRequest, ChatRole, LlmProvider};
 use serde_json::Value;
-use types::{load_nimbus_fixture, ErrorCode};
+use types::{load_offer_fixture, ErrorCode};
 
 const ECHO_FIXTURES: &[&str] = &[
     "llm-routing/echo-chat.json",
@@ -16,7 +16,7 @@ const ROUTING_FIXTURES: &[&str] = &[
 ];
 
 fn load(name: &str) -> Value {
-    load_nimbus_fixture(env!("CARGO_MANIFEST_DIR"), name).expect("fixture")
+    load_offer_fixture(env!("CARGO_MANIFEST_DIR"), name).expect("fixture")
 }
 
 fn messages_from(fix: &Value) -> Vec<ChatMessage> {
@@ -74,7 +74,7 @@ fn openai_catalog() -> Vec<ConnectionRef> {
 fn llm_routing_fixtures_parse() {
     for name in ECHO_FIXTURES {
         let fix = load(name);
-        assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+        assert_eq!(fix["schema"], "sak.fixture.offer/v0");
         assert_eq!(fix["offer"], "llm.chat");
         assert_eq!(fix["expect"]["status"], "ok");
         assert_eq!(
@@ -85,7 +85,7 @@ fn llm_routing_fixtures_parse() {
 
     for name in ROUTING_FIXTURES {
         let fix = load(name);
-        assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+        assert_eq!(fix["schema"], "sak.fixture.offer/v0");
         assert_eq!(fix["offer"], "llm.chat");
         assert!(fix["expect"]["routing"].is_object());
     }

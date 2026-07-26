@@ -1,7 +1,7 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "network.egress.check",
-  "source": "hand-authored; Nimbusware executor egress allow parity",
+  "source": "hand-authored egress allow golden",
   "request": {
     "binding_id": "00000000-0000-4000-8000-000000000001",
     "args": {

@@ -5,10 +5,10 @@ mod tests {
     use control::Offer;
     use offer_egress::{enforce_response_bytes, EgressCheckOffer, ResponseByteCap};
     use serde_json::Value;
-    use types::{load_nimbus_fixture, BindingId, ErrorCode, InvokeId, InvokeReq, InvokeResp};
+    use types::{load_offer_fixture, BindingId, ErrorCode, InvokeId, InvokeReq, InvokeResp};
 
     fn load(name: &str) -> Value {
-        load_nimbus_fixture(env!("CARGO_MANIFEST_DIR"), name).expect("fixture")
+        load_offer_fixture(env!("CARGO_MANIFEST_DIR"), name).expect("fixture")
     }
 
     #[tokio::test]
@@ -18,7 +18,7 @@ mod tests {
             "network.egress.check.deny.json",
         ] {
             let fix = load(name);
-            assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+            assert_eq!(fix["schema"], "sak.fixture.offer/v0");
             let offer = EgressCheckOffer::new().expect("offer");
             offer
                 .bind(BindingId::new(), fix["bind_policy"].clone())

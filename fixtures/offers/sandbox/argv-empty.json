@@ -1,5 +1,5 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "sandbox.exec",
   "source": "hand-authored empty argv case (sak159-b)",
   "request": {

@@ -7,10 +7,10 @@ mod tests {
     use control::Offer;
     use offer_memory::{BackendKind, MemoryIndexOffer, MemoryPlane, MemorySearchOffer};
     use serde_json::{json, Value};
-    use types::{load_nimbus_fixture, BindingId, InvokeId, InvokeReq, InvokeResp};
+    use types::{load_offer_fixture, BindingId, InvokeId, InvokeReq, InvokeResp};
 
     fn load(name: &str) -> Value {
-        load_nimbus_fixture(env!("CARGO_MANIFEST_DIR"), name).expect("fixture")
+        load_offer_fixture(env!("CARGO_MANIFEST_DIR"), name).expect("fixture")
     }
 
     fn docs_from(fix: &Value) -> Value {
@@ -50,7 +50,7 @@ mod tests {
     #[tokio::test]
     async fn fixture_search_rank_exact() {
         let fix = load("memory.search.rank.json");
-        assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
+        assert_eq!(fix["schema"], "sak.fixture.offer/v0");
         let (_plane, search) = index_with_backend(&fix).await;
         let resp = search
             .invoke(InvokeReq {

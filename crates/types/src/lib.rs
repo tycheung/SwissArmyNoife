@@ -4,7 +4,7 @@ mod fixture;
 mod invoke;
 mod schema;
 
-pub use fixture::load_nimbus_fixture;
+pub use fixture::load_offer_fixture;
 pub use invoke::{InvokeId, InvokeReq, InvokeResp};
 pub use schema::core_schema_document;
 

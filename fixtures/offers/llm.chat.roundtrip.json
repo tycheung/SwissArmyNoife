@@ -1,7 +1,7 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "llm.chat",
-  "source": "hand-authored placeholder pending Nimbusware dual-run export",
+  "source": "hand-authored offer golden (request shape)",
   "request": {
     "binding_id": "00000000-0000-0000-0000-000000000001",
     "invoke_id": "00000000-0000-0000-0000-000000000002",

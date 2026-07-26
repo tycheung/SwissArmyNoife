@@ -1,5 +1,5 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "llm.chat",
   "source": "hand-authored echo routing sample with system preamble (sak142-b)",
   "request": {

@@ -1,5 +1,5 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "memory.index",
   "source": "hand-authored; fingerprint skip on identical corpus",
   "backend": "exact",

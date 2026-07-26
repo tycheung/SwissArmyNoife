@@ -1,5 +1,5 @@
 {
-  "schema": "sak.fixture.nimbusware/v0",
+  "schema": "sak.fixture.offer/v0",
   "offer": "network.egress.check",
   "source": "hand-authored; response byte cap contract (enforced on fetch path)",
   "request": {
