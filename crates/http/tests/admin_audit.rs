@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn audit_list_filters_and_keeps_redaction() {
-    let mut state = AppState::new();
+    let state = AppState::new();
     {
         let mut audit = state.audit.lock().expect("lock");
         let id = InvokeId::from_uuid(Uuid::nil());
@@ -26,7 +26,6 @@ async fn audit_list_filters_and_keeps_redaction() {
         );
         assert_eq!(audit.list_active().len(), 1);
         assert_eq!(audit.list_active()[0].status, AuditStatus::Ok);
-        let _ = AuditLog::new();
     }
     let app = app_with_state(state);
 
