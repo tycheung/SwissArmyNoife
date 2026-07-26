@@ -269,6 +269,16 @@ pub(crate) struct SandboxJailArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct AuditQueryArgs {
+    /// Optional offer id filter.
+    #[serde(default)]
+    pub offer_id: Option<String>,
+    /// Unix seconds inclusive lower bound on `created_at`.
+    #[serde(default)]
+    pub since: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,

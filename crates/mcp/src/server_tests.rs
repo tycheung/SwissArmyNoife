@@ -60,8 +60,53 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v17"));
+    assert!(text.contains("v18"));
     assert!(text.contains("connections_list"));
+    assert!(text.contains("audit_query"));
+}
+
+#[tokio::test]
+async fn audit_query_returns_redacted_events() {
+    let (server, _tmp) = test_server();
+    // Produce an audited invoke via llm.chat bind+invoke.
+    let bound = server
+        .bind(Parameters(sample_bind("llm.chat")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let _ = server
+        .llm_chat_inner(crate::tool_args::LlmChatToolArgs {
+            binding_id: binding_id.clone(),
+            messages: vec![ChatMessageArg {
+                role: "user".into(),
+                content: "hi".into(),
+            }],
+            model: None,
+            provider: None,
+            connection_id: None,
+            max_tokens: None,
+            temperature: None,
+            stream: None,
+            prompt_cache_key: None,
+        })
+        .await
+        .expect("chat");
+    let raw = server
+        .audit_query(Parameters(crate::tool_args::AuditQueryArgs {
+            offer_id: Some("llm.chat".into()),
+            since: None,
+        }))
+        .await
+        .expect("audit_query");
+    assert!(raw.contains("events"));
+    assert!(!raw.contains("\"secret\""));
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
 }
 
 #[tokio::test]

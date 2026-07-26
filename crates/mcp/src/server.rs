@@ -7,13 +7,13 @@ use crate::live::LiveOffers;
 use crate::resources::{list_resources, read_resource};
 use crate::session::bind_pack;
 use crate::tool_args::{
-    BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, CatalogGetArgs,
-    ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs,
-    FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
-    MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs,
-    OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
-    SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs,
-    ToolsRegistryArgs, UnbindArgs,
+    AuditQueryArgs, BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs,
+    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs,
+    FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs,
+    LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs,
+    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs,
+    SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs,
+    ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 use crate::util::{expires_unix, parse_binding_id, serialize_resp};
 use crate::workspace_tools::boot_fs_shell;
@@ -154,6 +154,38 @@ impl McpServer {
             })
             .collect();
         Ok(json!({ "connections": connections }).to_string())
+    }
+
+    /// Query redacted invoke audit events (`sak528-b`).
+    #[tool(description = "Query redacted invoke audit events (optional offer_id/since)")]
+    async fn audit_query(
+        &self,
+        Parameters(args): Parameters<AuditQueryArgs>,
+    ) -> Result<String, McpError> {
+        use std::time::{Duration, UNIX_EPOCH};
+        let since = args.since.map(|s| UNIX_EPOCH + Duration::from_secs(s));
+        let audit = self.audit.lock().await;
+        let events: Vec<_> = audit
+            .query(args.offer_id.as_deref(), since)
+            .into_iter()
+            .map(|ev| {
+                let created_at = ev
+                    .created_at
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                json!({
+                    "invoke_id": ev.invoke_id.to_string(),
+                    "binding_id": ev.binding_id.to_string(),
+                    "offer_id": ev.offer_id.as_str(),
+                    "status": ev.status.as_str(),
+                    "code": ev.code.map(|c| c.as_str().to_owned()),
+                    "detail": ev.detail,
+                    "created_at": created_at,
+                })
+            })
+            .collect();
+        Ok(json!({ "events": events }).to_string())
     }
 
     /// Fetch one offer by id (`catalog.get`).
@@ -818,7 +850,7 @@ impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "SwissArmyNoife capability broker v17 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
+                "SwissArmyNoife capability broker v18 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()

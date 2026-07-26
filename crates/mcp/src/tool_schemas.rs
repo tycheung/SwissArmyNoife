@@ -4,13 +4,13 @@ use rmcp::handler::server::common::schema_for_type;
 use serde_json::{json, Map, Value};
 
 use crate::tool_args::{
-    BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, CatalogGetArgs,
-    ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs,
-    FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
-    MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs,
-    OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
-    SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs,
-    ToolsRegistryArgs, UnbindArgs,
+    AuditQueryArgs, BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs,
+    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs,
+    FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs,
+    LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs,
+    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs,
+    SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs,
+    ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -18,6 +18,7 @@ use crate::tool_args::{
 pub fn tool_input_schemas() -> Value {
     let mut m = Map::new();
     insert::<CatalogGetArgs>(&mut m, "catalog_get");
+    insert::<AuditQueryArgs>(&mut m, "audit_query");
     insert::<ProvisionArgs>(&mut m, "provision");
     insert::<BindArgs>(&mut m, "bind");
     insert::<UnbindArgs>(&mut m, "unbind");
@@ -116,6 +117,10 @@ mod tests {
         assert!(
             doc["tools"]["connections_list"].is_object(),
             "sak527-d connections_list schema"
+        );
+        assert!(
+            doc["tools"]["audit_query"].is_object(),
+            "sak528-b audit_query schema"
         );
     }
 }
