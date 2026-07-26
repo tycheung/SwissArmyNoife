@@ -55,6 +55,11 @@ export class SakClient {
     );
   }
 
+  /** `POST /v1/chat/completions` OpenAI-shaped facade (`sak546-a`). */
+  async chatCompletions(body: Record<string, JsonValue>): Promise<JsonValue> {
+    return this.postJson("/v1/chat/completions", body);
+  }
+
   async listWork(): Promise<WorkListResponse> {
     return SakClient.assertListOk(
       await this.getJson("/v1/sak/compute/work"),
