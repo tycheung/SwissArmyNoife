@@ -6,10 +6,10 @@ use serde_json::{json, Map, Value};
 use crate::tool_args::{
     BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, CatalogGetArgs,
     ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs,
-    FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmPreflightArgs, MemoryIndexArgs,
-    MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, ResearchBriefArgs,
-    ResearchFetchArgs, SandboxExecToolArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs,
-    UnbindArgs,
+    FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
+    MemoryIndexArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs,
+    ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SessionBindArgs, ShellExecArgs,
+    TelemetryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -23,6 +23,7 @@ pub fn tool_input_schemas() -> Value {
     insert::<SessionBindArgs>(&mut m, "session_bind");
     insert::<InvokeArgs>(&mut m, "invoke");
     insert::<LlmChatToolArgs>(&mut m, "llm_chat");
+    insert::<LlmEmbedArgs>(&mut m, "llm_embed");
     insert::<LlmPreflightArgs>(&mut m, "llm_preflight");
     insert::<OllamaManageArgs>(&mut m, "ollama_manage");
     insert::<TelemetryArgs>(&mut m, "llm_telemetry");
@@ -78,5 +79,9 @@ mod tests {
         let doc = tool_input_schemas();
         let policy = &doc["tools"]["bind"]["properties"]["policy"];
         assert_eq!(policy["type"], "object", "{policy}");
+        assert!(
+            doc["tools"]["llm_embed"].is_object(),
+            "sak523-b llm_embed schema"
+        );
     }
 }

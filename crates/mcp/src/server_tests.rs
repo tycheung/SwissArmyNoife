@@ -145,13 +145,13 @@ async fn bind_invoke_llm_embed_echo_backend() {
         .expect("str")
         .to_owned();
     let raw = server
-        .invoke(Parameters(InvokeArgs {
+        .llm_embed(Parameters(crate::tool_args::LlmEmbedArgs {
             binding_id: binding_id.clone(),
-            args: json!({ "inputs": ["ab"] }),
-            offer: Some("llm.embed".into()),
+            inputs: vec!["ab".into()],
+            model: None,
         }))
         .await
-        .expect("invoke");
+        .expect("llm_embed");
     let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
     match resp {
         InvokeResp::Ok { result, .. } => {

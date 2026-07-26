@@ -9,10 +9,10 @@ use crate::session::bind_pack;
 use crate::tool_args::{
     BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, CatalogGetArgs,
     ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs,
-    FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmPreflightArgs, MemoryIndexArgs,
-    MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, ResearchBriefArgs,
-    ResearchFetchArgs, SandboxExecToolArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs,
-    UnbindArgs,
+    FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
+    MemoryIndexArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs,
+    ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SessionBindArgs, ShellExecArgs,
+    TelemetryArgs, UnbindArgs,
 };
 use crate::util::{expires_unix, parse_binding_id, serialize_resp};
 use crate::workspace_tools::boot_fs_shell;
@@ -465,6 +465,23 @@ impl McpServer {
         serialize_resp(&resp)
     }
 
+    /// Typed invoke for `llm.embed` (returns `InvokeResp` JSON).
+    #[tool(description = "Embed texts via bound llm.embed offer (returns InvokeResp)")]
+    async fn llm_embed(
+        &self,
+        Parameters(LlmEmbedArgs {
+            binding_id,
+            inputs,
+            model,
+        }): Parameters<LlmEmbedArgs>,
+    ) -> Result<String, McpError> {
+        let binding_id = parse_binding_id(&binding_id)?;
+        let args = json!({ "inputs": inputs, "model": model });
+        let claim = OfferId::new("llm.embed").expect("valid");
+        let resp = self.dispatch_invoke(binding_id, args, Some(claim)).await?;
+        serialize_resp(&resp)
+    }
+
     /// Typed invoke for `llm.preflight` (reachability + capacity fit).
     #[tool(description = "LLM preflight: provider reachability + optional model fit ranks")]
     async fn llm_preflight(
@@ -739,7 +756,7 @@ impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "SwissArmyNoife capability broker v10 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, provision, bind, unbind, session_bind, invoke, llm_chat, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_search, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
+                "SwissArmyNoife capability broker v11 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_search, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()

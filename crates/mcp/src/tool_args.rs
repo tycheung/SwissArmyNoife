@@ -94,6 +94,16 @@ pub(crate) struct LlmChatToolArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct LlmEmbedArgs {
+    /// Binding id from `bind` for `llm.embed`.
+    pub binding_id: String,
+    /// Texts to embed (non-empty).
+    pub inputs: Vec<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct LlmPreflightCandidateArg {
     pub id: String,
     pub ram_mb: u64,
