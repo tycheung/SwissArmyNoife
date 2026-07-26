@@ -1,7 +1,7 @@
 //! Load Nimbusware llm-routing golden fixtures (`sak142-a` / `sak142-b` / `sak142-c`).
 
 use offer_llm::{resolve, ConnectionRef, EchoChatProvider, ResolveHint};
-use provider_core::{ChatMessage, ChatRequest, ChatRole, LlmProvider};
+use provider_core::{ChatMessage, ChatRequest, ChatRole, EmbedRequest, LlmProvider};
 use serde_json::Value;
 use types::{load_offer_fixture, ErrorCode};
 
@@ -9,6 +9,8 @@ const ECHO_FIXTURES: &[&str] = &[
     "llm-routing/echo-chat.json",
     "llm-routing/echo-chat-system.json",
 ];
+
+const ECHO_EMBED_FIXTURES: &[&str] = &["llm-routing/echo-embed.json"];
 
 const ROUTING_FIXTURES: &[&str] = &[
     "llm-routing/vault-missing.json",
@@ -89,6 +91,13 @@ fn llm_routing_fixtures_parse() {
         assert_eq!(fix["offer"], "llm.chat");
         assert!(fix["expect"]["routing"].is_object());
     }
+
+    for name in ECHO_EMBED_FIXTURES {
+        let fix = load(name);
+        assert_eq!(fix["schema"], "sak.fixture.offer/v0");
+        assert_eq!(fix["offer"], "llm.embed");
+        assert_eq!(fix["expect"]["status"], "ok");
+    }
 }
 
 #[tokio::test]
@@ -112,6 +121,33 @@ async fn llm_routing_fixtures_match_echo_provider() {
         assert_eq!(
             resp.content,
             fix["expect"]["result"]["text"].as_str().unwrap(),
+            "{name}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn llm_embed_fixture_matches_echo_provider() {
+    for name in ECHO_EMBED_FIXTURES {
+        let fix = load(name);
+        let model = fix["request"]["args"]["model"]
+            .as_str()
+            .expect("model")
+            .to_string();
+        let inputs: Vec<String> = fix["request"]["args"]["inputs"]
+            .as_array()
+            .expect("inputs")
+            .iter()
+            .map(|v| v.as_str().expect("str").to_owned())
+            .collect();
+        let resp = EchoChatProvider
+            .embed(EmbedRequest { model, inputs })
+            .await
+            .expect("echo embed");
+        let expect = &fix["expect"]["result"]["vectors"];
+        assert_eq!(
+            serde_json::to_value(&resp.vectors).unwrap(),
+            *expect,
             "{name}"
         );
     }

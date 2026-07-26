@@ -22,6 +22,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "session_bind",
     "invoke",
     "llm_chat",
+    "llm_embed",
     "llm_preflight",
     "ollama_manage",
     "llm_telemetry",
@@ -85,6 +86,10 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
     assert_contains(&call(&client, "broker_health", json!({})).await?, "ok");
     assert_contains(&call(&client, "catalog_list", json!({})).await?, "llm.chat");
     assert_contains(
+        &call(&client, "catalog_list", json!({})).await?,
+        "llm.embed",
+    );
+    assert_contains(
         &call(&client, "catalog_get", json!({"offer_id": "llm.chat"})).await?,
         "llm.chat",
     );
@@ -137,6 +142,24 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
     assert_contains(
         &call(&client, "unbind", json!({"binding_id": llm_id})).await?,
         "unbound",
+    );
+
+    let embed_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({"offer_id": "llm.embed", "ttl_secs": 300}),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "llm_embed",
+            json!({ "binding_id": embed_id, "inputs": ["ab"] }),
+        )
+        .await?,
+        "vectors",
     );
 
     let session = call(

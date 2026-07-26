@@ -1,0 +1,25 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "llm.embed",
+  "source": "hand-authored echo embed sample (sak523-d)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000001",
+    "invoke_id": "00000000-0000-0000-0000-000000000002",
+    "offer": "llm.embed",
+    "args": {
+      "inputs": ["ab"],
+      "model": "echo"
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "result": {
+      "model": "echo",
+      "vectors": [[2.0, 1.0]]
+    },
+    "routing": {
+      "provider": "echo",
+      "backend_env": "LLM_BACKEND=echo"
+    }
+  }
+}
