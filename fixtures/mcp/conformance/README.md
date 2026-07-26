@@ -18,7 +18,14 @@ Binding ids from prior steps can be referenced as `"$binding:<key>"` in later ar
 
 ## Run
 
-From `SwissArmyNoife/` (builds `mcp` binary first):
+**Preferred (full pack, MCP + offer goldens):** see
+[`docs/conformance-pack.md`](../../docs/conformance-pack.md):
+
+```bash
+cargo run -q -p xtask -- conformance
+```
+
+MCP fixtures only (builds `mcp` binary first):
 
 ```bash
 cargo test -p mcp --test conformance_fixture

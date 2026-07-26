@@ -23,6 +23,10 @@ Write-Host "== xtask boundaries =="
 cargo run -q -p xtask -- boundaries
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== xtask conformance =="
+cargo run -q -p xtask -- conformance
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== cargo deny check licenses =="
 if (-not (Get-Command cargo-deny -ErrorAction SilentlyContinue)) {
     Write-Host "cargo-deny not found; installing..."

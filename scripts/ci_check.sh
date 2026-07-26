@@ -18,6 +18,9 @@ cargo test --workspace
 echo "== xtask boundaries =="
 cargo run -q -p xtask -- boundaries
 
+echo "== xtask conformance =="
+cargo run -q -p xtask -- conformance
+
 echo "== cargo deny check licenses =="
 if ! command -v cargo-deny >/dev/null 2>&1; then
   echo "cargo-deny not found; installing..."
