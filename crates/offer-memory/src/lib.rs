@@ -12,6 +12,7 @@ mod naive_index;
 mod non_goals;
 mod plane;
 mod scope;
+mod scope_offer;
 mod search_offer;
 mod vector;
 
@@ -26,5 +27,6 @@ pub use meta_store::{get_index_fingerprint, upsert_index_meta};
 pub use naive_index::{NaiveIndex, SearchHit};
 pub use plane::{excerpt, MemoryPlane, MemoryState};
 pub use scope::{scope_hash, ScopeKind};
+pub use scope_offer::MemoryScopeOffer;
 pub use search_offer::MemorySearchOffer;
 pub use vector::{BackendKind, DynIndex, VectorIndex};
