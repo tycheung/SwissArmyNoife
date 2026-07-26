@@ -276,6 +276,39 @@ paths:
           description: Invalid body
         "503":
           description: Vault store unavailable
+  /v1/sak/connections/{id}:
+    get:
+      operationId: getConnection
+      summary: Get vault connection metadata by id (no secrets)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection metadata
+        "404":
+          description: Not found
+        "503":
+          description: Vault store unavailable
+    delete:
+      operationId: deleteConnection
+      summary: Delete vault connection by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+        "503":
+          description: Vault store unavailable
   /v1/sak/metrics:
     get:
       operationId: metrics

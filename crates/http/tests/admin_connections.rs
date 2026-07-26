@@ -49,6 +49,7 @@ async fn post_and_list_connections_never_echo_secret() {
     assert!(created.get("secret").is_none());
 
     let list = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("GET")
@@ -65,6 +66,63 @@ async fn post_and_list_connections_never_echo_secret() {
     let listed: Value = serde_json::from_slice(&body).expect("json");
     assert_eq!(listed["connections"].as_array().expect("arr").len(), 1);
     assert!(!listed.to_string().contains("sk-live"));
+
+    let got = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/sak/connections/c1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("get");
+    assert_eq!(got.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(got.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let one: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(one["connection_id"], "c1");
+    assert!(!one.to_string().contains("sk-live"));
+
+    let miss = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/sak/connections/missing")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("miss");
+    assert_eq!(miss.status(), StatusCode::NOT_FOUND);
+
+    let del = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/v1/sak/connections/c1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("del");
+    assert_eq!(del.status(), StatusCode::NO_CONTENT);
+
+    let gone = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/v1/sak/connections/c1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("gone");
+    assert_eq!(gone.status(), StatusCode::NOT_FOUND);
 
     std::env::remove_var(persist_sqlite::CONFIG_DIR);
     std::env::remove_var(vault::VAULT_KEY);

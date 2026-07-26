@@ -1,7 +1,7 @@
 //! Vault connection admin endpoints (`sak527-a`) — metadata only (no secret echo).
 
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     routing::get,
     Json, Router,
@@ -92,11 +92,55 @@ async fn create_connection(
     ))
 }
 
+async fn get_connection(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    let vault = state
+        .vault
+        .as_ref()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let conn = vault
+        .conn
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let meta = persist_sqlite::get_connection_meta(&conn, &id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(meta_json(&meta)))
+}
+
+async fn delete_connection(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let vault = state
+        .vault
+        .as_ref()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let conn = vault
+        .conn
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let removed = persist_sqlite::delete_connection(&conn, &id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if removed {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
 pub fn connections_router() -> Router<AppState> {
-    Router::new().route(
-        "/v1/sak/connections",
-        get(list_connections).post(create_connection),
-    )
+    Router::new()
+        .route(
+            "/v1/sak/connections",
+            get(list_connections).post(create_connection),
+        )
+        .route(
+            "/v1/sak/connections/{id}",
+            get(get_connection).delete(delete_connection),
+        )
 }
 
 #[cfg(test)]

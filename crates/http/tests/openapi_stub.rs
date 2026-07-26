@@ -25,5 +25,6 @@ fn sak_admin_openapi_stub_exists() {
     assert!(text.contains("ComputeNodeListResponse"));
     assert!(text.contains("/v1/sak/bindings"));
     assert!(text.contains("/v1/sak/connections"));
+    assert!(text.contains("/v1/sak/connections/{id}"));
     assert!(text.contains("/v1/sak/metrics"));
 }
