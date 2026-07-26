@@ -231,6 +231,44 @@ async fn chat_completions_tools_reject_stream() {
 }
 
 #[tokio::test]
+async fn chat_completions_refuses_multimodal_content() {
+    let state = AppState::new();
+    let binding_id = state.bind_llm_chat_for_test(300);
+    let app = app_with_state(state);
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "binding_id": binding_id.to_string(),
+                        "model": "echo",
+                        "messages": [{
+                            "role": "user",
+                            "content": [
+                                { "type": "text", "text": "hi" },
+                                { "type": "image_url", "image_url": { "url": "https://x" } }
+                            ]
+                        }]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .expect("post");
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let v: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(v["error"]["code"], "schema.invalid");
+}
+
+#[tokio::test]
 async fn chat_completions_tools_round_trip() {
     let state = AppState::new();
     let tools_binding = state.bind_tools_loop_for_test(300);

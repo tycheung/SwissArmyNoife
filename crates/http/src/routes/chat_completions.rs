@@ -34,8 +34,9 @@ struct ChatCompletionsRequest {
 #[derive(Debug, Deserialize)]
 struct ChatMessageIn {
     role: String,
+    /// String content only; arrays/objects (e.g. `image_url`) are refused (`sak544-b`).
     #[serde(default)]
-    content: Option<String>,
+    content: Option<Value>,
     #[serde(default)]
     tool_calls: Vec<OpenAiToolCall>,
 }
@@ -51,6 +52,18 @@ struct OpenAiFunction {
     name: String,
     /// JSON object encoded as a string (`OpenAI` wire shape).
     arguments: String,
+}
+
+fn message_text(content: &Option<Value>) -> Result<String, ErrResp> {
+    match content {
+        None | Some(Value::Null) => Ok(String::new()),
+        Some(Value::String(s)) => Ok(s.clone()),
+        Some(_) => Err(openai_err(
+            StatusCode::BAD_REQUEST,
+            "schema.invalid",
+            "message content must be a string (multimodal parts not supported)",
+        )),
+    }
 }
 
 fn claim_llm() -> OfferId {
@@ -251,12 +264,14 @@ async fn invoke_llm(
         .messages
         .iter()
         .map(|m| {
-            json!({
-                "role": m.role,
-                "content": m.content.clone().unwrap_or_default()
+            message_text(&m.content).map(|content| {
+                json!({
+                    "role": m.role,
+                    "content": content
+                })
             })
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     let invoke_args = json!({ "messages": messages, "model": body.model });
     let resp = state
         .llm
