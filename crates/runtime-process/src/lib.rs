@@ -39,9 +39,10 @@ mod tests {
         }
         #[cfg(not(windows))]
         {
+            use std::os::unix::fs::PermissionsExt;
+
             let script = tmp.path().join("echo.sh");
             fs::write(&script, "#!/bin/sh\necho \"$1\"\n").unwrap();
-            use std::os::unix::fs::PermissionsExt;
             let mut perms = fs::metadata(&script).unwrap().permissions();
             perms.set_mode(0o755);
             fs::set_permissions(&script, perms).unwrap();
