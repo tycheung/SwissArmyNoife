@@ -1,9 +1,19 @@
-# Claude Desktop — SwissArmyNoife MCP
+# Example MCP client configs
 
-Copy [`claude_desktop_config.json`](claude_desktop_config.json) into Claude Desktop’s
-MCP config (merge under `mcpServers`), then set `command` to your built `mcp` binary.
+These are **examples** of how a client registers the SwissArmyNoife stdio server. Adjust
+`command` and `CONFIG_DIR` to your machine. Full steps: [docs/mcp-setup.md](../docs/mcp-setup.md).
 
-- **Stdio ambient trust** — no API key (see `docs/mcp-auth.md` in the Agentic workspace).
-- Build: from `SwissArmyNoife/`, `cargo build -p mcp`.
-- Prefer release builds for day-to-day use: `cargo build -p mcp --release` and point
-  `command` at `target/release/mcp` (`.exe` on Windows).
+| File | Notes |
+|------|--------|
+| [`claude_desktop_config.json`](claude_desktop_config.json) | Claude Desktop–style `mcpServers` block |
+
+Build first:
+
+```bash
+cd SwissArmyNoife
+cargo build -p mcp
+# prefer release for daily use: cargo build -p mcp --release
+```
+
+- **Stdio ambient trust** — no API key for local stdio.
+- Point `command` at `target/debug/mcp` or `target/release/mcp` (`.exe` on Windows).

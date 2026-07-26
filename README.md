@@ -1,7 +1,7 @@
 # SwissArmyNoife
 
-A **local-first capability broker**: install it once, then any harness (Cursor, Claude Desktop,
-Nimbusware, …) can call tools like chat, sandbox, filesystem, memory, and research over MCP.
+A **local-first capability broker**: install it once, then any MCP-capable harness can call
+tools like chat, sandbox, filesystem, memory, and research.
 
 Shorthand in docs: **sak**. License: **Apache-2.0** ([LICENSE](LICENSE)).
 
@@ -13,9 +13,9 @@ cargo build -p mcp
 cargo run -p cli -- hello
 ```
 
-Point Cursor at the built `mcp` binary — copy [`.cursor/mcp.json.example`](../.cursor/mcp.json.example)
-into the Agentic workspace `.cursor/mcp.json` and adjust paths. Full walkthrough:
-[Windows first-run](../docs/windows-first-run.md) · [env vars](../docs/env.md).
+Start / register the MCP server with your client:
+
+→ **[docs/mcp-setup.md](docs/mcp-setup.md)** — build, env, stdio vs HTTP (harness-agnostic).
 
 Smoke checks and CI:
 
@@ -32,17 +32,13 @@ More: [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md).
 - **Wasm modules** first for marketplace add-ons (process secondary; no untrusted native dylibs)
 - **Local-first** defaults (SQLite)
 
-Sibling repos in this workspace: [marketplace-api](../marketplace-api),
-[marketplace-web](../marketplace-web), [Nimbusware](../Nimbusware).
-
 ## Documentation
 
 | Topic | Where |
 |-------|--------|
-| Doc index | [../docs/README.md](../docs/README.md) |
-| First run / Cursor MCP | [../docs/windows-first-run.md](../docs/windows-first-run.md) |
-| Environment | [../docs/env.md](../docs/env.md) |
-| Crate boundaries / size gates | [../docs/crate-boundaries.md](../docs/crate-boundaries.md) · [../docs/crate-size-budgets.md](../docs/crate-size-budgets.md) |
-| Publish dry-run | [../docs/publish-dry-run.md](../docs/publish-dry-run.md) |
-| CI commands | [../docs/ci-matrix.md](../docs/ci-matrix.md) |
+| MCP setup (any client) | [docs/mcp-setup.md](docs/mcp-setup.md) |
+| Example client configs | [examples/](examples/) |
+| Control coverage | [docs/control-coverage.md](docs/control-coverage.md) |
 
+When developing inside the broader Agentic workspace, also see sibling docs for env vars,
+CI matrix, and marketplace: `../docs/` (not published with this repo alone).

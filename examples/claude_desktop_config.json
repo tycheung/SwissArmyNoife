@@ -1,8 +1,12 @@
 {
   "mcpServers": {
     "swissarmynoife": {
-      "command": "D:/Agentic/SwissArmyNoife/target/debug/mcp.exe",
-      "args": []
+      "command": "/absolute/path/to/SwissArmyNoife/target/release/mcp",
+      "args": [],
+      "env": {
+        "CONFIG_DIR": "/absolute/path/to/SwissArmyNoife/.run",
+        "LLM_BACKEND": "echo"
+      }
     }
   }
 }
