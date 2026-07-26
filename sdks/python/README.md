@@ -24,10 +24,12 @@ with SakClient("http://127.0.0.1:8787") as sak:
 
 ### MCP (`SakMcpClient`)
 
-Streamable HTTP MCP client (v0 stub — no `initialize` session negotiation yet).
+Streamable HTTP MCP client. On first tool call (or explicit ``initialize()``), negotiates a
+session and sends ``mcp-session-id`` on later RPCs (``sak329-b``).
 
 | Method | MCP wire | Description |
 |--------|----------|-------------|
+| `initialize()` | `initialize` + `notifications/initialized` | Session handshake |
 | `ping()` | `tools/call` → `ping` | Health smoke; returns text from tool result |
 | `tools_list()` | `tools/list` | Lists broker MCP tools |
 | `catalog_list()` | `tools/call` → `catalog_list` | Lists catalog offers via MCP tool |

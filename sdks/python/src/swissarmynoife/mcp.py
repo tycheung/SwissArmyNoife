@@ -1,4 +1,4 @@
-"""Streamable HTTP MCP client stub (`sak322-d` / `sak489-i` / `sak490-i`).
+"""Streamable HTTP MCP client (`sak322-d` / `sak329-b` / `sak489-i` / `sak490-i`).
 
 MCP exposes ``compute_work`` + ``claim_work`` only. List/get/requeue empty-vs-miss
 asserts are on ``SakClient`` (HTTP); Rust ``sdk`` is HTTP-only as well.
@@ -14,6 +14,9 @@ import httpx
 from swissarmynoife.client import SakClient
 
 _DEFAULT_MCP_URL = "http://127.0.0.1:8080/mcp"
+_MCP_PROTOCOL_VERSION = "2024-11-05"
+_SESSION_HEADER = "mcp-session-id"
+_MCP_ACCEPT = "application/json, text/event-stream"
 
 
 def _unwrap_mcp_compute_payload(result: Any) -> Any:
@@ -54,8 +57,24 @@ def _extract_ping_text(result: Any) -> str:
     return str(result)
 
 
+def _session_id_from_body(body: Any) -> str | None:
+    if not isinstance(body, dict):
+        return None
+    for key in ("sessionId", "session_id", "mcp-session-id"):
+        val = body.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    result = body.get("result")
+    if isinstance(result, dict):
+        for key in ("sessionId", "session_id", "mcp-session-id"):
+            val = result.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+    return None
+
+
 class SakMcpClient:
-    """MCP client over Streamable HTTP (ping via ``tools/call`` stub)."""
+    """MCP client over Streamable HTTP with optional ``initialize`` session (``sak329-b``)."""
 
     def __init__(
         self,
@@ -64,24 +83,56 @@ class SakMcpClient:
         token: str | None = None,
         timeout: float = 30.0,
         client: httpx.Client | None = None,
+        auto_initialize: bool = True,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self._token = token
         self._timeout = timeout
         self._client = client
         self._rpc_id = 0
+        self._session_id: str | None = None
+        self._initialized = False
+        self._auto_initialize = auto_initialize
+
+    @property
+    def session_id(self) -> str | None:
+        return self._session_id
 
     def _auth_headers(self) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": _MCP_ACCEPT,
+        }
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
+        if self._session_id:
+            headers[_SESSION_HEADER] = self._session_id
         return headers
 
-    def _tools_call(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
-        return self._rpc(
-            "tools/call",
-            {"name": name, "arguments": arguments or {}},
-        )
+    def _post(
+        self,
+        payload: dict[str, Any],
+        *,
+        notification: bool = False,
+    ) -> httpx.Response:
+        headers = self._auth_headers()
+        if self._client is not None:
+            response = self._client.post(
+                self.base_url,
+                json=payload,
+                headers=headers,
+                timeout=self._timeout,
+            )
+            if notification and response.status_code in (200, 202):
+                return response
+            response.raise_for_status()
+            return response
+        with httpx.Client(timeout=self._timeout) as owned:
+            response = owned.post(self.base_url, json=payload, headers=headers)
+            if notification and response.status_code in (200, 202):
+                return response
+            response.raise_for_status()
+            return response
 
     def _rpc(self, method: str, params: dict[str, Any] | None = None) -> Any:
         self._rpc_id += 1
@@ -91,29 +142,51 @@ class SakMcpClient:
             "method": method,
             "params": params or {},
         }
-        headers = self._auth_headers()
-        if self._client is not None:
-            response = self._client.post(
-                self.base_url,
-                json=payload,
-                headers=headers,
-                timeout=self._timeout,
-            )
-            response.raise_for_status()
-            body = response.json()
-        else:
-            with httpx.Client(timeout=self._timeout) as owned:
-                response = owned.post(self.base_url, json=payload, headers=headers)
-                response.raise_for_status()
-                body = response.json()
-
-        if isinstance(body, dict) and "error" in body:
-            err = body["error"]
-            message = err.get("message", err) if isinstance(err, dict) else err
-            raise RuntimeError(f"MCP {method} failed: {message}")
+        response = self._post(payload)
+        header_sid = response.headers.get(_SESSION_HEADER)
+        if header_sid and header_sid.strip() and not self._session_id:
+            self._session_id = header_sid.strip()
+        body = response.json()
         if isinstance(body, dict):
+            if not self._session_id:
+                sid = _session_id_from_body(body)
+                if sid:
+                    self._session_id = sid
+            if "error" in body:
+                err = body["error"]
+                message = err.get("message", err) if isinstance(err, dict) else err
+                raise RuntimeError(f"MCP {method} failed: {message}")
             return body.get("result", body)
         return body
+
+    def initialize(self) -> Any:
+        """Post MCP ``initialize`` + ``notifications/initialized``; capture session id."""
+        result = self._rpc(
+            "initialize",
+            {
+                "protocolVersion": _MCP_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "swissarmynoife", "version": "0.1.0"},
+            },
+        )
+        self._post(
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            notification=True,
+        )
+        self._initialized = True
+        return result
+
+    def ensure_session(self) -> None:
+        if not self._auto_initialize or self._initialized:
+            return
+        self.initialize()
+
+    def _tools_call(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
+        self.ensure_session()
+        return self._rpc(
+            "tools/call",
+            {"name": name, "arguments": arguments or {}},
+        )
 
     def ping(self) -> str:
         result = self._tools_call("ping")
@@ -121,6 +194,7 @@ class SakMcpClient:
 
     def tools_list(self) -> Any:
         """MCP ``tools/list`` (``sak322-e``)."""
+        self.ensure_session()
         return self._rpc("tools/list")
 
     def catalog_list(self) -> Any:
