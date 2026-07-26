@@ -45,7 +45,7 @@ impl Offer for MemoryScopeOffer {
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
         let invoke_id = req.invoke_id.unwrap_or_default();
-        let allowed = self.allowed.lock().map(|g| g.clone()).unwrap_or(None);
+        let allowed = self.allowed.lock().map_or(None, |g| g.clone());
         match run_scope(&req.args, allowed.as_deref()) {
             Ok(result) => InvokeResp::ok(invoke_id, result),
             Err((code, message)) => InvokeResp::Error {
