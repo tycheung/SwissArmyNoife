@@ -27,6 +27,10 @@ Write-Host "== xtask conformance =="
 cargo run -q -p xtask -- conformance
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== xtask schema export --check =="
+cargo run -q -p xtask -- schema export --check
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "== cargo deny check licenses =="
 if (-not (Get-Command cargo-deny -ErrorAction SilentlyContinue)) {
     Write-Host "cargo-deny not found; installing..."
