@@ -1,6 +1,7 @@
 //! Maintainer CLI: `cargo run -p xtask -- <cmd>`.
 
 mod boundaries;
+mod conformance;
 mod schema_export;
 mod size;
 
@@ -43,6 +44,16 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
+        Some("conformance") => match conformance::run_pack() {
+            Ok(()) => {
+                println!("conformance: OK ({} packs)", conformance::PACK.len());
+                ExitCode::SUCCESS
+            }
+            Err(err) => {
+                eprintln!("conformance: FAILED — {err}");
+                ExitCode::from(1)
+            }
+        },
         // Dry-run stub walk until full schemars codegen (`sak111-h` / `sak111-i`).
         Some("schema") => match args.next().as_deref() {
             Some("export") => {
@@ -76,17 +87,11 @@ fn main() -> ExitCode {
         },
         Some(other) => {
             eprintln!("unknown command: {other}");
-            eprintln!(
-                "usage: xtask {{boundaries|size|schema export [--check]}}  \
-                 (see Agentic/docs/crate-boundaries.md, crate-size-budgets.md, mcp-schema-codegen.md)"
-            );
+            eprintln!("usage: xtask {{boundaries|size|conformance|schema export [--check]}}");
             ExitCode::from(2)
         }
         None => {
-            eprintln!(
-                "usage: xtask {{boundaries|size|schema export [--check]}}  \
-                 (see Agentic/docs/crate-boundaries.md, crate-size-budgets.md, mcp-schema-codegen.md)"
-            );
+            eprintln!("usage: xtask {{boundaries|size|conformance|schema export [--check]}}");
             ExitCode::from(2)
         }
     }
