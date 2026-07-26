@@ -1,0 +1,18 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "eval.run",
+  "source": "hand-authored sak532-a",
+  "bind_policy": {},
+  "request": {
+    "args": {
+      "op": "run",
+      "checks": [
+        { "id": "n", "assert": "eq", "actual": 1, "expected": 1 }
+      ]
+    }
+  },
+  "expect": {
+    "status": "ok",
+    "result": { "passed": true }
+  }
+}

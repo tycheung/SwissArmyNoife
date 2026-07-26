@@ -55,6 +55,11 @@ async fn conformance_llm_chat_echo_fixture() -> Result<(), Box<dyn std::error::E
     run_fixture("llm-chat-echo.json", "llm-chat-echo").await
 }
 
+#[tokio::test]
+async fn conformance_eval_run_pass_deny_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    run_fixture("eval-run-pass-deny.json", "eval-run-pass-deny").await
+}
+
 async fn run_fixture(file: &str, expect_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let fixture_path = fixture_dir().join(file);
     let fixture: Fixture = serde_json::from_str(&fs::read_to_string(fixture_path)?)?;

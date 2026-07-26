@@ -30,7 +30,12 @@ fn default_assert() -> String {
 }
 
 /// Run checks; overall `passed` is true iff every check passes.
-pub(crate) fn run_checks(args: &Value) -> Result<Value, (ErrorCode, String)> {
+///
+/// When `allowed_asserts` is `Some`, unknown assert kinds return `policy.denied`.
+pub(crate) fn run_checks(
+    args: &Value,
+    allowed_asserts: Option<&[String]>,
+) -> Result<Value, (ErrorCode, String)> {
     let parsed: RunArgs = serde_json::from_value(args.clone())
         .map_err(|e| (ErrorCode::SchemaInvalid, format!("eval.run args: {e}")))?;
     if parsed.op != "run" {
@@ -48,6 +53,14 @@ pub(crate) fn run_checks(args: &Value) -> Result<Value, (ErrorCode, String)> {
     let mut results = Vec::with_capacity(parsed.checks.len());
     let mut all_ok = true;
     for c in &parsed.checks {
+        if let Some(allow) = allowed_asserts {
+            if !allow.iter().any(|a| a == &c.assert) {
+                return Err((
+                    ErrorCode::PolicyDenied,
+                    format!("assert {:?} not allowed by binding policy", c.assert),
+                ));
+            }
+        }
         let (ok, message) = eval_one(c)?;
         if !ok {
             all_ok = false;
@@ -67,16 +80,16 @@ pub(crate) fn run_checks(args: &Value) -> Result<Value, (ErrorCode, String)> {
 fn eval_one(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
     match c.assert.as_str() {
         "eq" => {
-            let passed = c.actual == c.expected;
-            let message = if passed {
+            let ok = c.actual == c.expected;
+            let message = if ok {
                 Value::Null
             } else {
                 json!(format!(
-                    "eq failed: actual={:?} expected={:?}",
+                    "eq failed: actual={} expected={}",
                     c.actual, c.expected
                 ))
             };
-            Ok((passed, message))
+            Ok((ok, message))
         }
         "contains" => {
             let Some(hay) = c.actual.as_str() else {
@@ -91,13 +104,13 @@ fn eval_one(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
                     format!("check {}: contains requires string expected", c.id),
                 ));
             };
-            let passed = hay.contains(needle);
-            let message = if passed {
+            let ok = hay.contains(needle);
+            let message = if ok {
                 Value::Null
             } else {
                 json!(format!("contains failed: {hay:?} missing {needle:?}"))
             };
-            Ok((passed, message))
+            Ok((ok, message))
         }
         other => Err((
             ErrorCode::SchemaInvalid,
@@ -113,12 +126,15 @@ mod tests {
 
     #[test]
     fn fixture_pass_all_eq() {
-        let out = run_checks(&json!({
-            "checks": [
-                { "id": "a", "assert": "eq", "actual": 1, "expected": 1 },
-                { "id": "b", "assert": "contains", "actual": "hello", "expected": "ell" }
-            ]
-        }))
+        let out = run_checks(
+            &json!({
+                "checks": [
+                    { "id": "a", "assert": "eq", "actual": 1, "expected": 1 },
+                    { "id": "b", "assert": "contains", "actual": "hello", "expected": "ell" }
+                ]
+            }),
+            None,
+        )
         .expect("run");
         assert_eq!(out["passed"], true);
         assert_eq!(out["results"].as_array().unwrap().len(), 2);
@@ -126,11 +142,14 @@ mod tests {
 
     #[test]
     fn fixture_fail_on_mismatch() {
-        let out = run_checks(&json!({
-            "checks": [
-                { "id": "a", "assert": "eq", "actual": 1, "expected": 2 }
-            ]
-        }))
+        let out = run_checks(
+            &json!({
+                "checks": [
+                    { "id": "a", "assert": "eq", "actual": 1, "expected": 2 }
+                ]
+            }),
+            None,
+        )
         .expect("run");
         assert_eq!(out["passed"], false);
         assert_eq!(out["results"][0]["passed"], false);
@@ -138,7 +157,22 @@ mod tests {
 
     #[test]
     fn empty_checks_rejected() {
-        let err = run_checks(&json!({ "checks": [] })).expect_err("empty");
+        let err = run_checks(&json!({ "checks": [] }), None).expect_err("empty");
         assert_eq!(err.0, ErrorCode::SchemaInvalid);
+    }
+
+    #[test]
+    fn deny_disallowed_assert() {
+        let allow = vec!["eq".into()];
+        let err = run_checks(
+            &json!({
+                "checks": [
+                    { "id": "c", "assert": "contains", "actual": "a", "expected": "a" }
+                ]
+            }),
+            Some(&allow),
+        )
+        .expect_err("deny");
+        assert_eq!(err.0, ErrorCode::PolicyDenied);
     }
 }

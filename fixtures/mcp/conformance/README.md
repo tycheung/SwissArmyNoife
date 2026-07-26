@@ -12,9 +12,10 @@ JSON step scripts exercised by the integration test harness in
 | `invoke-deny.json` | `invoke-deny` | Policy deny path on `invoke` |
 | `memory-search-empty.json` | `memory-search-empty` | Bind memory → empty `memory_search` |
 | `llm-chat-echo.json` | `llm-chat-echo` | Bind LLM → `llm_chat` with echo backend (`LLM_BACKEND=echo`) |
+| `eval-run-pass-deny.json` | `eval-run-pass-deny` | Bind `eval.run` with assert allowlist → pass + `policy.denied` |
 
 Each fixture is `{ "name", "version", "steps": [{ "tool", "arguments?", "expect_contains" }] }`.
-Binding ids from prior steps can be referenced as `"$binding:<key>"` in later arguments.
+Binding ids from prior `session_bind` steps can be referenced as `"$<offer_id>"` in later arguments.
 
 ## Run
 
@@ -36,6 +37,7 @@ Run a single fixture:
 ```bash
 cargo test -p mcp --test conformance_fixture conformance_ping_catalog_fixture
 cargo test -p mcp --test conformance_fixture conformance_llm_chat_echo_fixture
+cargo test -p mcp --test conformance_fixture conformance_eval_run_pass_deny_fixture
 ```
 
 Environment set by the harness: `CONFIG_DIR` (temp), `LLM_BACKEND=echo`, `SANDBOX_BACKEND=none`,

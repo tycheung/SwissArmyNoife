@@ -1,0 +1,40 @@
+{
+  "name": "eval-run-pass-deny",
+  "version": 1,
+  "steps": [
+    {
+      "tool": "ping",
+      "expect_contains": ["ok"]
+    },
+    {
+      "tool": "session_bind",
+      "arguments": {
+        "offer_ids": ["eval.run"],
+        "principal": "local",
+        "ttl_secs": 60,
+        "policy": { "eval": { "allowed_asserts": ["eq"] } }
+      },
+      "expect_contains": ["bindings", "eval.run"]
+    },
+    {
+      "tool": "eval_run",
+      "arguments": {
+        "binding_id": "$eval.run",
+        "checks": [
+          { "id": "ok", "assert": "eq", "actual": 1, "expected": 1 }
+        ]
+      },
+      "expect_contains": ["passed"]
+    },
+    {
+      "tool": "eval_run",
+      "arguments": {
+        "binding_id": "$eval.run",
+        "checks": [
+          { "id": "no", "assert": "contains", "actual": "x", "expected": "x" }
+        ]
+      },
+      "expect_contains": ["policy.denied"]
+    }
+  ]
+}

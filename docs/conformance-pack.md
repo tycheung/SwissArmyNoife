@@ -22,6 +22,7 @@ Exit `0` means all packs passed. Non-zero lists which `cargo test -p … --test 
 | `offer-sandbox` | `golden_sandbox` |
 | `offer-memory` | `golden_memory` |
 | `offer-egress` | `golden_egress` |
+| `offer-eval` | `golden_eval` |
 | `types` | `offer_fixtures` |
 
 Fixture details: [`fixtures/mcp/conformance/README.md`](../fixtures/mcp/conformance/README.md).

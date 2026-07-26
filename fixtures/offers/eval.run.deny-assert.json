@@ -1,0 +1,20 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "eval.run",
+  "source": "hand-authored sak532-a",
+  "bind_policy": {
+    "eval": { "allowed_asserts": ["eq"] }
+  },
+  "request": {
+    "args": {
+      "op": "run",
+      "checks": [
+        { "id": "c", "assert": "contains", "actual": "hello", "expected": "ell" }
+      ]
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "policy.denied"
+  }
+}

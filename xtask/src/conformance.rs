@@ -11,6 +11,7 @@ pub const PACK: &[(&str, &str)] = &[
     ("offer-sandbox", "golden_sandbox"),
     ("offer-memory", "golden_memory"),
     ("offer-egress", "golden_egress"),
+    ("offer-eval", "golden_eval"),
     ("types", "offer_fixtures"),
 ];
 
