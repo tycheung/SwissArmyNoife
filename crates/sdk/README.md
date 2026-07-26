@@ -1,6 +1,12 @@
 # sdk — Rust HTTP admin client (`sak320`)
 
-Thin `reqwest` wrapper over the broker **`http-admin`** API. MCP tools (llm, sandbox, memory, …) use stdio or Streamable HTTP — this crate covers **HTTP admin only** in v0.
+Thin `reqwest` wrapper over the broker **`http-admin`** API. MCP tools (llm, sandbox, memory, …)
+use stdio or Streamable HTTP — this crate covers **HTTP admin only** in v0.
+
+**MCP clients:** use the TypeScript / Python `SakMcpClient` (session `initialize` + `bind` /
+`invoke`, `sak329`) or the Rust [`rmcp`](https://crates.io/crates/rmcp) crate against
+`mcp-http`. A first-party Rust `SakMcpClient` is deferred (`sak329-d`).
+
 
 ## Quickstart
 
