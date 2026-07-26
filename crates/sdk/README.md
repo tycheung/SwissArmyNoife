@@ -3,10 +3,14 @@
 Thin `reqwest` wrapper over the broker **`http-admin`** API. MCP tools (llm, sandbox, memory, …)
 use stdio or Streamable HTTP — this crate covers **HTTP admin only** in v0.
 
-**MCP clients:** use the TypeScript / Python `SakMcpClient` (session `initialize` + `bind` /
-`invoke`, `sak329`) for now. A first-party Rust MCP client wrapping [`rmcp`](https://crates.io/crates/rmcp)
-is planned as **Wave 6 / `sak348`** — spike ADR: [`docs/adr/sdk-rmcp-client.md`](../../../docs/adr/sdk-rmcp-client.md)
-(`sak348-a`). The broker **server** already uses `rmcp` in `crates/mcp`.
+**MCP client (optional):** enable `--features mcp` for [`SakMcpClient`](src/mcp.rs) wrapping
+[`rmcp`](https://crates.io/crates/rmcp) Streamable HTTP (`sak348-b`). ADR:
+[`docs/adr/sdk-rmcp-client.md`](../../../docs/adr/sdk-rmcp-client.md). Language SDKs remain
+hand-rolled; the broker **server** also uses `rmcp` in `crates/mcp`.
+
+```bash
+cargo test -p sdk --features mcp
+```
 
 
 ## Quickstart

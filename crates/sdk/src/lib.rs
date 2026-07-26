@@ -1,7 +1,10 @@
 //! SwissArmyNoife Rust SDK — HTTP admin client (`sak320`).
+//! Optional MCP client: `--features mcp` (`sak348-b`).
 
 mod client;
 mod error;
+#[cfg(feature = "mcp")]
+mod mcp;
 
 pub use client::{
     assert_capacity_ok, assert_egress_ok, assert_list_ok, assert_llm_ok, assert_memory_ok,
@@ -11,3 +14,5 @@ pub use client::{
     work_session_id, SakClient,
 };
 pub use error::SdkError;
+#[cfg(feature = "mcp")]
+pub use mcp::SakMcpClient;

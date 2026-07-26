@@ -6,15 +6,25 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+default = []
+# Streamable HTTP MCP client via rmcp (`sak348-b`). Off by default.
+mcp = ["dep:rmcp"]
+
 [dependencies]
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 types = { path = "../types" }
+# Keep default features (macros/server/base64): client-only flags fail to compile on rmcp 0.12.
+rmcp = { version = "0.12", optional = true, features = [
+    "client",
+    "transport-streamable-http-client-reqwest",
+] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 wiremock = { workspace = true }
 
 [[example]]
