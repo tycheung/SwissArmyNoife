@@ -8,6 +8,7 @@ mod loop_types;
 mod microcompact;
 mod offload;
 mod registry;
+mod registry_offer;
 mod shell;
 
 pub use agent_loop::{AgentLoop, ToolExecutor};
@@ -18,6 +19,7 @@ pub use loop_types::{AgentStep, LoopBudget, ToolCall, ToolResult};
 pub use microcompact::Microcompact;
 pub use offload::{OffloadRef, ResultOffload, DEFAULT_INLINE_LIMIT};
 pub use registry::{ToolRegistry, ToolSpec};
+pub use registry_offer::ToolsRegistryOffer;
 pub use shell::{
     shell_tool_spec, HostShellRunner, ShellError, ShellRequest, ShellResult, ShellRunner,
     ShellTools, StubShellRunner,
