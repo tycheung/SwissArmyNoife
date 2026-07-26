@@ -23,6 +23,43 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+test("chatCompletions posts facade body (sak546-b)", async () => {
+  const orig = globalThis.fetch;
+  let seenUrl = "";
+  let seenBody: unknown;
+  globalThis.fetch = async (input, init) => {
+    seenUrl = String(input);
+    seenBody = JSON.parse(String(init?.body ?? "{}"));
+    return new Response(
+      JSON.stringify({
+        id: "chatcmpl-test",
+        object: "chat.completion",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "echo:hi" },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  try {
+    const client = new SakClient("http://127.0.0.1:8787");
+    const out = (await client.chatCompletions({
+      binding_id: "00000000-0000-0000-0000-000000000001",
+      model: "echo",
+      messages: [{ role: "user", content: "hi" }],
+    })) as Record<string, JsonValue>;
+    assert.equal(seenUrl, "http://127.0.0.1:8787/v1/chat/completions");
+    assert.equal((seenBody as { model?: string }).model, "echo");
+    assert.equal(out.object, "chat.completion");
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
 test("listWorkFiltered empty vs miss (sak490-i)", async () => {
   const orig = globalThis.fetch;
   globalThis.fetch = mockFetch([
