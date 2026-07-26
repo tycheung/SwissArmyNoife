@@ -221,6 +221,18 @@ pub(crate) struct MemoryScopeArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct ToolsRegistryArgs {
+    /// Binding id from `bind` for `tools.registry`.
+    pub binding_id: String,
+    /// `list` | `get` (default `list`).
+    #[serde(default)]
+    pub op: Option<String>,
+    /// Tool id when `op` is `get`.
+    #[serde(default)]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,

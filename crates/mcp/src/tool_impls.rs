@@ -5,7 +5,7 @@ use crate::tool_args::{
     CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
     EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
     MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs,
-    ResearchFetchArgs, ShellExecArgs,
+    ResearchFetchArgs, ShellExecArgs, ToolsRegistryArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
 use crate::workspace_tools::{fs_err, mode_label, parse_read_mode, shell_err};
@@ -120,6 +120,23 @@ impl McpServer {
             "id": id,
         });
         let claim = OfferId::new("memory.scope").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn tools_registry_inner(
+        &self,
+        args: ToolsRegistryArgs,
+    ) -> Result<String, McpError> {
+        let ToolsRegistryArgs { binding_id, op, id } = args;
+        let binding_id = parse_binding_id(&binding_id)?;
+        let invoke_args = json!({
+            "op": op.unwrap_or_else(|| "list".into()),
+            "id": id,
+        });
+        let claim = OfferId::new("tools.registry").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;

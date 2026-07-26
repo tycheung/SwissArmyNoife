@@ -60,7 +60,7 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v13"));
+    assert!(text.contains("v14"));
 }
 
 #[tokio::test]
@@ -73,6 +73,7 @@ async fn catalog_list_includes_seed_offers() {
     assert!(listed.contains("llm.resolve"), "sak523-c: {listed}");
     assert!(listed.contains("memory.embed"), "sak524-a: {listed}");
     assert!(listed.contains("memory.scope"), "sak524-c: {listed}");
+    assert!(listed.contains("tools.registry"), "sak525-b: {listed}");
 }
 
 #[tokio::test]
@@ -249,6 +250,40 @@ async fn bind_invoke_memory_scope_and_cross_kind_deny() {
             ..
         } => {}
         other => panic!("expected policy.denied, got {other:?}"),
+    }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
+async fn bind_invoke_tools_registry_list() {
+    let (server, _tmp) = test_server();
+    let bound = server
+        .bind(Parameters(sample_bind("tools.registry")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let raw = server
+        .tools_registry(Parameters(crate::tool_args::ToolsRegistryArgs {
+            binding_id: binding_id.clone(),
+            op: Some("list".into()),
+            id: None,
+        }))
+        .await
+        .expect("tools_registry");
+    let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
+    match resp {
+        InvokeResp::Ok { result, .. } => {
+            assert!(result["tools"].as_array().expect("arr").len() >= 2);
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
     }
     server
         .unbind(Parameters(UnbindArgs { binding_id }))

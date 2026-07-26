@@ -38,6 +38,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "memory_embed",
     "memory_scope",
     "memory_search",
+    "tools_registry",
     "research_fetch",
     "research_brief",
     "module_list",
@@ -427,6 +428,24 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "scope_key",
+    );
+
+    let tools_reg_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({"offer_id": "tools.registry", "ttl_secs": 300}),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "tools_registry",
+            json!({ "binding_id": tools_reg_id, "op": "list" }),
+        )
+        .await?,
+        "tools",
     );
 
     let research_fetch_id = binding_id(
