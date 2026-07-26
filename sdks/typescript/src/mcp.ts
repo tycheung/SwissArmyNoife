@@ -100,6 +100,42 @@ export class SakMcpClient {
     return this.toolsCall("catalog_list");
   }
 
+  /** MCP ``bind`` — returns binding JSON (`sak329-c`). */
+  async bind(
+    offerId: string,
+    args: Record<string, unknown> = {},
+  ): Promise<unknown> {
+    return this.toolsCall("bind", { offer_id: offerId, ...args });
+  }
+
+  /** MCP ``invoke`` — invoke a bound offer (`sak329-c`). */
+  async invoke(
+    bindingId: string,
+    invokeArgs: Record<string, unknown> = {},
+    offer?: string,
+  ): Promise<unknown> {
+    const params: Record<string, unknown> = {
+      binding_id: bindingId,
+      args: invokeArgs,
+    };
+    if (offer !== undefined) {
+      params.offer = offer;
+    }
+    return this.toolsCall("invoke", params);
+  }
+
+  /** MCP ``provision`` — provision an offer resource (`sak329-c`). */
+  async provision(
+    offerId: string,
+    idempotencyKey?: string,
+  ): Promise<unknown> {
+    const params: Record<string, unknown> = { offer_id: offerId };
+    if (idempotencyKey !== undefined) {
+      params.idempotency_key = idempotencyKey;
+    }
+    return this.toolsCall("provision", params);
+  }
+
   /** MCP ``compute_work`` — raw invoke body; claim skips hard assert (`sak489-i`). */
   async computeWork(body: Record<string, JsonValue>): Promise<JsonValue> {
     const raw = unwrapMcpComputePayload(

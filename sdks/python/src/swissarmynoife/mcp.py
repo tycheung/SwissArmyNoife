@@ -201,6 +201,30 @@ class SakMcpClient:
         """MCP ``catalog_list`` via ``tools/call`` (``sak322-e``)."""
         return self._tools_call("catalog_list")
 
+    def bind(self, offer_id: str, **kwargs: Any) -> Any:
+        """MCP ``bind`` — returns binding JSON (``sak329-c``)."""
+        return self._tools_call("bind", {"offer_id": offer_id, **kwargs})
+
+    def invoke(
+        self,
+        binding_id: str,
+        args: dict[str, Any] | None = None,
+        *,
+        offer: str | None = None,
+    ) -> Any:
+        """MCP ``invoke`` — invoke a bound offer (``sak329-c``)."""
+        params: dict[str, Any] = {"binding_id": binding_id, "args": args or {}}
+        if offer is not None:
+            params["offer"] = offer
+        return self._tools_call("invoke", params)
+
+    def provision(self, offer_id: str, *, idempotency_key: str | None = None) -> Any:
+        """MCP ``provision`` — provision an offer resource (``sak329-c``)."""
+        params: dict[str, Any] = {"offer_id": offer_id}
+        if idempotency_key is not None:
+            params["idempotency_key"] = idempotency_key
+        return self._tools_call("provision", params)
+
     def compute_work(self, payload: dict[str, Any]) -> Any:
         """MCP ``compute_work`` — raw invoke body; claim skips hard assert (``sak489-i``)."""
         raw = _unwrap_mcp_compute_payload(

@@ -117,6 +117,32 @@ def test_ping_posts_tools_call_and_returns_text() -> None:
     assert call.kwargs["headers"]["Authorization"] == "Bearer tok"
 
 
+def test_bind_and_invoke_post_tools_call() -> None:
+    """sak329-c: bind / invoke / provision thin wrappers."""
+    mock_client = MagicMock(spec=httpx.Client)
+    mock_response = MagicMock()
+    mock_response.headers = {}
+    mock_response.json.return_value = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {"binding_id": "b1"},
+    }
+    mock_response.raise_for_status = MagicMock()
+    mock_client.post.return_value = mock_response
+
+    client = _tool_client(mock_client)
+    client.bind("llm.chat", principal="local")
+    assert mock_client.post.call_args.kwargs["json"]["params"]["name"] == "bind"
+    assert (
+        mock_client.post.call_args.kwargs["json"]["params"]["arguments"]["offer_id"]
+        == "llm.chat"
+    )
+    client.invoke("b1", {"messages": []}, offer="llm.chat")
+    assert mock_client.post.call_args.kwargs["json"]["params"]["name"] == "invoke"
+    client.provision("llm.chat", idempotency_key="idem-1")
+    assert mock_client.post.call_args.kwargs["json"]["params"]["name"] == "provision"
+
+
 def test_default_mcp_url_strips_trailing_slash() -> None:
     client = SakMcpClient("http://127.0.0.1:8080/mcp/")
     assert client.base_url == "http://127.0.0.1:8080/mcp"

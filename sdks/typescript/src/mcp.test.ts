@@ -102,6 +102,39 @@ test("ping auto-initializes once (sak329-a)", async () => {
   assert.equal(client.getSessionId(), "s1");
 });
 
+test("bind and invoke post tools/call (sak329-c)", async () => {
+  const calls: { body: Record<string, unknown> }[] = [];
+  const mockFetch: typeof fetch = async (_input, init) => {
+    calls.push({ body: JSON.parse(String(init?.body ?? "{}")) });
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        result: { binding_id: "b1", status: "ok" },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  const client = toolClient(mockFetch);
+  await client.bind("llm.chat", { principal: "local" });
+  assert.equal(calls[0]?.body.method, "tools/call");
+  assert.equal((calls[0]?.body.params as { name: string }).name, "bind");
+  assert.equal(
+    (calls[0]?.body.params as { arguments: { offer_id: string } }).arguments
+      .offer_id,
+    "llm.chat",
+  );
+  await client.invoke("b1", { messages: [] }, "llm.chat");
+  assert.equal((calls[1]?.body.params as { name: string }).name, "invoke");
+  assert.equal(
+    (calls[1]?.body.params as { arguments: { binding_id: string } }).arguments
+      .binding_id,
+    "b1",
+  );
+  await client.provision("llm.chat", "idem-1");
+  assert.equal((calls[2]?.body.params as { name: string }).name, "provision");
+});
+
 test("ping posts tools/call and returns text content", async () => {
   const calls: { url: string; init?: RequestInit }[] = [];
   const mockFetch: typeof fetch = async (input, init) => {
