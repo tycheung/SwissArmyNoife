@@ -1816,6 +1816,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "offer-eval"
+version = "0.1.0"
+dependencies = [
+ "control",
+ "serde",
+ "serde_json",
+ "tokio",
+ "types",
+]
+
+[[package]]
 name = "offer-llm"
 version = "0.1.0"
 dependencies = [
