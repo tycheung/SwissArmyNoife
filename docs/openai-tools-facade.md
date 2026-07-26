@@ -11,8 +11,9 @@ stranger-bar surface.
 |--------|------|---------|
 | `POST` | `/v1/chat/completions` | `llm.chat` or `tools.loop` |
 
-Auth matches other HTTP admin routes (local process; no ambient network trust story beyond
-whatever you put in front of `http-admin`).
+Auth: when `MCP_HTTP_TOKEN` is set (or minted `sk_live_…` keys), send
+`Authorization: Bearer <token>`. With no token configured, local process auth is off
+(tests / ambient stdio-adjacent demos only — not a network trust story).
 
 ## Chat (`llm.chat`)
 
@@ -32,7 +33,26 @@ curl -s http://127.0.0.1:8787/v1/chat/completions \
 
 Header alternative: `X-Sak-Binding-Id: <uuid>`.
 
-`stream: true` → HTTP 400 (`stream_not_supported`) in v0.
+### Streaming
+
+`stream: true` on the **chat** path returns `Content-Type: text/event-stream` with
+OpenAI-ish `chat.completion.chunk` data lines and a terminal `data: [DONE]`.
+
+```bash
+curl -N http://127.0.0.1:8787/v1/chat/completions \
+  -H 'content-type: application/json' \
+  -d '{
+    "binding_id": "<llm.chat-binding-uuid>",
+    "model": "echo",
+    "stream": true,
+    "messages": [{ "role": "user", "content": "ping" }]
+  }'
+```
+
+Offer errors after the stream starts are framed as an SSE `error` object (then `[DONE]`).
+Binding miss / bad UUID before the stream starts stays JSON (HTTP 4xx).
+
+`stream: true` with **`tool_calls`** → HTTP 400 (`stream_not_supported`).
 
 ## Tools round-trip (`tools.loop`)
 
@@ -61,6 +81,8 @@ curl -s http://127.0.0.1:8787/v1/chat/completions \
 
 Response `choices[0].finish_reason` is `tool_calls`; `message.content` is the loop result
 JSON (includes per-tool `ok` / `output`).
+
+Streaming is **not** supported on this path (`stream_not_supported`, `sak543-a`).
 
 ## SDK sketch
 
