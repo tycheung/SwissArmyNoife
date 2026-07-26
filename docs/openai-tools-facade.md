@@ -86,7 +86,11 @@ Streaming is **not** supported on this path (`stream_not_supported`, `sak543-a`)
 
 ## SDK sketch
 
-TypeScript: [`sdks/typescript/examples/openai-chat-facade.ts`](../sdks/typescript/examples/openai-chat-facade.ts).
+| Language | Entry |
+|----------|-------|
+| Rust | [`crates/sdk` example `chat_completions`](../crates/sdk/examples/chat_completions.rs) (`SakClient::chat_completions`) |
+| TypeScript | [`sdks/typescript/examples/openai-chat-facade.ts`](../sdks/typescript/examples/openai-chat-facade.ts) (`SakClient.chatCompletions`) |
+| Python | `SakClient.chat_completions` in [`sdks/python`](../sdks/python/src/swissarmynoife/client.py) |
 
 OpenAPI stub: [`docs/openapi/sak-admin.v0.yaml`](openapi/sak-admin.v0.yaml) path
 `/v1/chat/completions`.
