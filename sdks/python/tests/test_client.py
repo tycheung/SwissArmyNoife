@@ -10,6 +10,31 @@ import pytest
 from swissarmynoife import SakClient
 
 
+def test_chat_completions_posts() -> None:
+    """sak547-b: chat_completions posts OpenAI facade body."""
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "object": "chat.completion",
+        "choices": [{"message": {"role": "assistant", "content": "echo:hi"}}],
+    }
+
+    with patch.object(httpx.Client, "post", return_value=mock_resp) as post:
+        with SakClient("http://example.test") as sak:
+            out = sak.chat_completions(
+                {
+                    "binding_id": "00000000-0000-0000-0000-000000000001",
+                    "model": "echo",
+                    "messages": [{"role": "user", "content": "hi"}],
+                }
+            )
+        assert out["object"] == "chat.completion"
+        post.assert_called_once()
+        args, kwargs = post.call_args
+        assert args[0] == "http://example.test/v1/chat/completions"
+        assert kwargs["json"]["model"] == "echo"
+
+
 def test_base_url_strips_trailing_slash() -> None:
     with SakClient("http://127.0.0.1:8787/") as sak:
         assert sak.base_url == "http://127.0.0.1:8787"
