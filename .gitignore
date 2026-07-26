@@ -39,3 +39,7 @@ sdks/java/target/
 # C# SDK
 sdks/csharp/**/bin/
 sdks/csharp/**/obj/
+
+# Ruby SDK
+sdks/ruby/vendor/
+sdks/ruby/.bundle/
