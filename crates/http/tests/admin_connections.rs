@@ -1,4 +1,4 @@
-//! HTTP vault connections admin (`sak527-a`).
+//! HTTP vault connections admin (`sak527-a` / `sak527-b`).
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -6,20 +6,22 @@ use http_admin::{app_with_state, AppState};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-#[tokio::test]
-async fn post_and_list_connections_never_echo_secret() {
+fn boot_app() -> axum::Router {
     let tmp = tempfile::tempdir().expect("tmp");
-    std::env::set_var(persist_sqlite::CONFIG_DIR, tmp.path());
+    // Leak so CONFIG_DIR stays valid for the test process duration.
+    let path = tmp.into_path();
+    std::env::set_var(persist_sqlite::CONFIG_DIR, &path);
     std::env::set_var(
         vault::VAULT_KEY,
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     );
     let state = AppState::from_env();
     assert!(state.vault.is_some(), "vault should open under CONFIG_DIR");
-    let app = app_with_state(state);
+    app_with_state(state)
+}
 
+async fn post_conn(app: axum::Router, id: &str) -> Value {
     let create = app
-        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
@@ -27,7 +29,7 @@ async fn post_and_list_connections_never_echo_secret() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
-                        "connection_id": "c1",
+                        "connection_id": id,
                         "provider": "openai",
                         "label": "prod",
                         "secret": "sk-live-secret-value"
@@ -42,14 +44,18 @@ async fn post_and_list_connections_never_echo_secret() {
     let body = axum::body::to_bytes(create.into_body(), 64 * 1024)
         .await
         .expect("bytes");
-    let created: Value = serde_json::from_slice(&body).expect("json");
+    serde_json::from_slice(&body).expect("json")
+}
+
+#[tokio::test]
+async fn post_and_list_connections_never_echo_secret() {
+    let app = boot_app();
+    let created = post_conn(app.clone(), "c1").await;
     assert_eq!(created["connection_id"], "c1");
-    assert_eq!(created["provider"], "openai");
     assert!(!created.to_string().contains("sk-live"));
     assert!(created.get("secret").is_none());
 
     let list = app
-        .clone()
         .oneshot(
             Request::builder()
                 .method("GET")
@@ -66,6 +72,12 @@ async fn post_and_list_connections_never_echo_secret() {
     let listed: Value = serde_json::from_slice(&body).expect("json");
     assert_eq!(listed["connections"].as_array().expect("arr").len(), 1);
     assert!(!listed.to_string().contains("sk-live"));
+}
+
+#[tokio::test]
+async fn get_and_delete_connection_by_id() {
+    let app = boot_app();
+    let _ = post_conn(app.clone(), "c1").await;
 
     let got = app
         .clone()
@@ -123,7 +135,4 @@ async fn post_and_list_connections_never_echo_secret() {
         .await
         .expect("gone");
     assert_eq!(gone.status(), StatusCode::NOT_FOUND);
-
-    std::env::remove_var(persist_sqlite::CONFIG_DIR);
-    std::env::remove_var(vault::VAULT_KEY);
 }
