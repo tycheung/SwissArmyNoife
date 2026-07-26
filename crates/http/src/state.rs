@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use control::{
     ApiKeyStore, AuditLog, BindRequest, BindingStore, CatalogRegistry, MeterSnapshot, Principal,
+    RateLimiter,
 };
 use offer_compute::ComputePlane;
 use offer_llm::{EchoChatProvider, LlmChatOffer};
@@ -43,6 +44,8 @@ pub struct AppState {
     pub http_token: Option<String>,
     /// Minted API keys accepted as bearer (`sak541-b`).
     pub api_keys: Arc<ApiKeyStore>,
+    /// Optional facade rate limit (`sak544-c`); unlimited by default.
+    pub rate_limiter: Arc<Mutex<RateLimiter>>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<PostgresCatalog>>,
@@ -72,6 +75,7 @@ impl AppState {
             tools_loop,
             http_token: None,
             api_keys: Arc::new(ApiKeyStore::new()),
+            rate_limiter: Arc::new(Mutex::new(RateLimiter::from_env())),
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }
@@ -81,6 +85,13 @@ impl AppState {
     #[must_use]
     pub fn with_http_token(mut self, token: impl Into<String>) -> Self {
         self.http_token = Some(token.into());
+        self
+    }
+
+    /// Fix facade rate limit to `per_min` tokens (`sak544-c` tests).
+    #[must_use]
+    pub fn with_rate_limit_per_min(self, per_min: f64) -> Self {
+        *self.rate_limiter.lock().expect("rate lock") = RateLimiter::with_per_min(per_min);
         self
     }
 

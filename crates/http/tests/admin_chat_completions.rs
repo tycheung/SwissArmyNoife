@@ -231,6 +231,53 @@ async fn chat_completions_tools_reject_stream() {
 }
 
 #[tokio::test]
+async fn chat_completions_rate_limit_is_429() {
+    let state = AppState::new().with_rate_limit_per_min(1.0);
+    let binding_id = state.bind_llm_chat_for_test(300);
+    let app = app_with_state(state);
+
+    let body = json!({
+        "binding_id": binding_id.to_string(),
+        "model": "echo",
+        "messages": [{ "role": "user", "content": "a" }]
+    })
+    .to_string();
+
+    let ok = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .body(Body::from(body.clone()))
+                .unwrap(),
+        )
+        .await
+        .expect("first");
+    assert_eq!(ok.status(), StatusCode::OK);
+
+    let limited = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .expect("second");
+    assert_eq!(limited.status(), StatusCode::TOO_MANY_REQUESTS);
+    let bytes = axum::body::to_bytes(limited.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let v: Value = serde_json::from_slice(&bytes).expect("json");
+    assert_eq!(v["error"]["type"], "rate_limit_error");
+    assert_eq!(v["error"]["code"], "budget.exhausted");
+}
+
+#[tokio::test]
 async fn chat_completions_refuses_multimodal_content() {
     let state = AppState::new();
     let binding_id = state.bind_llm_chat_for_test(300);

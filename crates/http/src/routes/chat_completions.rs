@@ -8,7 +8,7 @@ use axum::{
     routing::post,
     Json, Router,
 };
-use control::Offer;
+use control::{Offer, RateLimiter};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, InvokeReq, InvokeResp, OfferId};
@@ -331,6 +331,22 @@ async fn run_llm_chat_stream(
     }
 }
 
+fn check_facade_rate_limit(state: &AppState) -> Result<(), ErrResp> {
+    let mut lim = state.rate_limiter.lock().expect("rate lock");
+    lim.check("http-facade").map_err(|_| {
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({
+                "error": {
+                    "message": RateLimiter::deny_message(),
+                    "type": "rate_limit_error",
+                    "code": "budget.exhausted"
+                }
+            })),
+        )
+    })
+}
+
 async fn chat_completions(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -343,6 +359,7 @@ async fn chat_completions(
             "messages must be non-empty",
         ));
     }
+    check_facade_rate_limit(&state)?;
     if let Some(last) = body.messages.last() {
         if !last.tool_calls.is_empty() {
             // sak543-a: tools path does not stream in v0.
