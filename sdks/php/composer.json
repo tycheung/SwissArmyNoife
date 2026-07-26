@@ -1,0 +1,26 @@
+{
+  "name": "swissarmynoife/sdk",
+  "description": "SwissArmyNoife HTTP admin + MCP clients (sak335)",
+  "type": "library",
+  "license": "Apache-2.0",
+  "require": {
+    "php": ">=8.2",
+    "guzzlehttp/guzzle": "^7.8"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "SwissArmyNoife\\Sdk\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SwissArmyNoife\\Sdk\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit"
+  }
+}

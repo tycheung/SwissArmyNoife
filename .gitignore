@@ -48,3 +48,6 @@ sdks/ruby/.bundle/
 sdks/kotlin/.gradle/
 sdks/kotlin/build/
 sdks/kotlin/.kotlin/
+
+# PHP SDK
+sdks/php/vendor/
