@@ -1,12 +1,20 @@
-//! HTTP admin shared state (`sak067-a` / `sak066-a` / sak070 Phase B / sak429-d).
+//! HTTP admin shared state (`sak067-a` / `sak066-a` / sak070 Phase B / sak429-d / sak527-a).
 
 use std::sync::{Arc, Mutex, OnceLock};
 
 use control::{BindingStore, CatalogRegistry, MeterSnapshot};
 use offer_compute::ComputePlane;
+use rusqlite::Connection;
+use vault::VaultKey;
 
 #[cfg(feature = "postgres")]
 use persist_postgres::ports::PostgresCatalog;
+
+/// Vault-backed connection store (`SQLite` + key).
+pub struct VaultStore {
+    pub conn: Mutex<Connection>,
+    pub key: VaultKey,
+}
 
 /// Shared admin router state.
 #[derive(Clone)]
@@ -16,6 +24,8 @@ pub struct AppState {
     pub invoke_count: Arc<Mutex<u64>>,
     /// Lazy shared `SQLite` compute plane (`sak429-d`).
     pub compute_plane: Arc<OnceLock<Result<Arc<ComputePlane>, String>>>,
+    /// Vault connections when `SQLite` + vault key open (`sak527-a`).
+    pub vault: Option<Arc<VaultStore>>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<PostgresCatalog>>,
@@ -29,6 +39,7 @@ impl AppState {
             catalog: Arc::new(Mutex::new(CatalogRegistry::new())),
             invoke_count: Arc::new(Mutex::new(0)),
             compute_plane: Arc::new(OnceLock::new()),
+            vault: None,
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }
@@ -49,12 +60,21 @@ impl AppState {
         }
     }
 
-    /// Build state, optionally wiring a Postgres catalog store from env.
+    /// Build state, optionally wiring vault + Postgres catalog from env.
     #[must_use]
     pub fn from_env() -> Self {
+        let mut state = Self::new();
+        match open_vault_store() {
+            Ok(store) => {
+                tracing::info!("vault connections store live");
+                state.vault = Some(Arc::new(store));
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "vault connections store unavailable");
+            }
+        }
         #[cfg(feature = "postgres")]
         {
-            let mut state = Self::new();
             match persist_postgres::try_open_from_env() {
                 Ok(Some(backend)) => {
                     tracing::info!("persist backend: postgres (catalog store live)");
@@ -65,12 +85,8 @@ impl AppState {
                     tracing::warn!(error = %e, "SAK_PERSIST_BACKEND=postgres but open failed");
                 }
             }
-            return state;
         }
-        #[cfg(not(feature = "postgres"))]
-        {
-            Self::new()
-        }
+        state
     }
 
     /// Snapshot meters for `/metrics`.
@@ -88,6 +104,15 @@ impl AppState {
             catalog.len() as u64,
         )
     }
+}
+
+fn open_vault_store() -> Result<VaultStore, String> {
+    let conn = persist_sqlite::open_default().map_err(|e| e.to_string())?;
+    let key = VaultKey::bootstrap().map_err(|e| e.to_string())?;
+    Ok(VaultStore {
+        conn: Mutex::new(conn),
+        key,
+    })
 }
 
 impl Default for AppState {

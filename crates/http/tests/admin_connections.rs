@@ -1,0 +1,71 @@
+//! HTTP vault connections admin (`sak527-a`).
+
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use http_admin::{app_with_state, AppState};
+use serde_json::{json, Value};
+use tower::ServiceExt;
+
+#[tokio::test]
+async fn post_and_list_connections_never_echo_secret() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    std::env::set_var(persist_sqlite::CONFIG_DIR, tmp.path());
+    std::env::set_var(
+        vault::VAULT_KEY,
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    );
+    let state = AppState::from_env();
+    assert!(state.vault.is_some(), "vault should open under CONFIG_DIR");
+    let app = app_with_state(state);
+
+    let create = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/sak/connections")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "connection_id": "c1",
+                        "provider": "openai",
+                        "label": "prod",
+                        "secret": "sk-live-secret-value"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .expect("post");
+    assert_eq!(create.status(), StatusCode::CREATED);
+    let body = axum::body::to_bytes(create.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let created: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(created["connection_id"], "c1");
+    assert_eq!(created["provider"], "openai");
+    assert!(!created.to_string().contains("sk-live"));
+    assert!(created.get("secret").is_none());
+
+    let list = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/sak/connections")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("list");
+    assert_eq!(list.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(list.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let listed: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(listed["connections"].as_array().expect("arr").len(), 1);
+    assert!(!listed.to_string().contains("sk-live"));
+
+    std::env::remove_var(persist_sqlite::CONFIG_DIR);
+    std::env::remove_var(vault::VAULT_KEY);
+}

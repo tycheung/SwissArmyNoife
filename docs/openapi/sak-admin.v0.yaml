@@ -225,6 +225,57 @@ paths:
           description: Binding summary
         "404":
           description: Not found
+  /v1/sak/connections:
+    get:
+      operationId: listConnections
+      summary: List vault connection metadata (no secrets)
+      responses:
+        "200":
+          description: Connection metadata list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        connection_id:
+                          type: string
+                        provider:
+                          type: string
+                        label:
+                          type: string
+        "503":
+          description: Vault store unavailable
+    post:
+      operationId: createConnection
+      summary: Create/update vault connection (secret accepted, never echoed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, secret]
+              properties:
+                connection_id:
+                  type: string
+                provider:
+                  type: string
+                label:
+                  type: string
+                secret:
+                  type: string
+      responses:
+        "201":
+          description: Connection metadata (no secret)
+        "400":
+          description: Invalid body
+        "503":
+          description: Vault store unavailable
   /v1/sak/metrics:
     get:
       operationId: metrics
