@@ -26,6 +26,13 @@ cargo run -p sdk --example quickstart
 
 Workspace doc: [`docs/sdk-quickstart.md`](../../../docs/sdk-quickstart.md) (`sak324-a`).
 
+OpenAI chat facade (`sak545-c`):
+
+```bash
+# Needs llm.chat binding UUID from MCP bind / test helper
+SAK_LLM_BINDING=<uuid> cargo run -p sdk --example chat_completions
+```
+
 ## `SakClient`
 
 ```rust
@@ -50,6 +57,7 @@ async fn main() -> Result<(), sdk::SdkError> {
 | `list_modules()` | `GET /v1/sak/modules` | sak320-b |
 | `get_module(id)` | `GET /v1/sak/modules/{id}` | sak320-b |
 | `capacity()` | `GET /v1/sak/capacity` | sak320-c |
+| `chat_completions(body)` | `POST /v1/chat/completions` | sak545-a |
 | `list_work()` | `GET /v1/sak/compute/work` | sak320-c |
 | `list_nodes()` | `GET /v1/sak/compute/nodes` | sak320-c |
 

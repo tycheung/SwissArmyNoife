@@ -31,5 +31,9 @@ wiremock = { workspace = true }
 name = "quickstart"
 path = "examples/quickstart.rs"
 
+[[example]]
+name = "chat_completions"
+path = "examples/chat_completions.rs"
+
 [lints]
 workspace = true
