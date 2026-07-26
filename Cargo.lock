@@ -1113,6 +1113,7 @@ dependencies = [
  "offer-capacity",
  "offer-compute",
  "offer-llm",
+ "offer-tools",
  "persist-postgres",
  "persist-sqlite",
  "rusqlite",

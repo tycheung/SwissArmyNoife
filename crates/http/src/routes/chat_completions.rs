@@ -1,4 +1,4 @@
-//! `POST /v1/chat/completions` — OpenAI-shaped facade over `llm.chat` (`sak540-b`).
+//! `POST /v1/chat/completions` — OpenAI-shaped facade (`sak540-b`/`sak540-c`).
 
 use axum::{
     extract::State,
@@ -17,6 +17,9 @@ use crate::state::AppState;
 struct ChatCompletionsRequest {
     #[serde(default)]
     binding_id: Option<String>,
+    /// Binding for `tools.loop` when executing `tool_calls` (`sak540-c`).
+    #[serde(default)]
+    tools_binding_id: Option<String>,
     messages: Vec<ChatMessageIn>,
     #[serde(default)]
     model: Option<String>,
@@ -27,7 +30,23 @@ struct ChatCompletionsRequest {
 #[derive(Debug, Deserialize)]
 struct ChatMessageIn {
     role: String,
-    content: String,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    tool_calls: Vec<OpenAiToolCall>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiToolCall {
+    id: String,
+    function: OpenAiFunction,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiFunction {
+    name: String,
+    /// JSON object encoded as a string (`OpenAI` wire shape).
+    arguments: String,
 }
 
 type ErrResp = (StatusCode, Json<Value>);
@@ -61,7 +80,23 @@ fn claim_llm() -> OfferId {
     OfferId::new("llm.chat").expect("valid")
 }
 
-fn parse_binding_id(
+fn claim_tools_loop() -> OfferId {
+    OfferId::new("tools.loop").expect("valid")
+}
+
+fn parse_uuid_binding(raw: &str) -> Result<BindingId, ErrResp> {
+    uuid::Uuid::parse_str(raw)
+        .map(BindingId::from_uuid)
+        .map_err(|_| {
+            openai_err(
+                StatusCode::BAD_REQUEST,
+                "binding_invalid",
+                "binding_id must be a UUID",
+            )
+        })
+}
+
+fn parse_llm_binding_id(
     body: &ChatCompletionsRequest,
     headers: &HeaderMap,
 ) -> Result<BindingId, ErrResp> {
@@ -80,18 +115,36 @@ fn parse_binding_id(
                 "binding_id required (body or X-Sak-Binding-Id)",
             )
         })?;
-    uuid::Uuid::parse_str(binding_raw)
-        .map(BindingId::from_uuid)
-        .map_err(|_| {
-            openai_err(
-                StatusCode::BAD_REQUEST,
-                "binding_invalid",
-                "binding_id must be a UUID",
-            )
-        })
+    parse_uuid_binding(binding_raw)
 }
 
-fn ensure_llm_chat_binding(state: &AppState, binding_id: BindingId) -> Result<(), ErrResp> {
+fn parse_tools_binding_id(
+    body: &ChatCompletionsRequest,
+    headers: &HeaderMap,
+) -> Result<BindingId, ErrResp> {
+    let binding_raw = body
+        .tools_binding_id
+        .as_deref()
+        .or_else(|| {
+            headers
+                .get("x-sak-tools-binding-id")
+                .and_then(|v| v.to_str().ok())
+        })
+        .ok_or_else(|| {
+            openai_err(
+                StatusCode::BAD_REQUEST,
+                "tools_binding_required",
+                "tools_binding_id required when messages include tool_calls",
+            )
+        })?;
+    parse_uuid_binding(binding_raw)
+}
+
+fn ensure_offer_binding(
+    state: &AppState,
+    binding_id: BindingId,
+    expect: &str,
+) -> Result<(), ErrResp> {
     let store = state.bindings.lock().expect("bindings lock");
     let record = store.get(binding_id).map_err(|code| {
         openai_err(
@@ -100,11 +153,11 @@ fn ensure_llm_chat_binding(state: &AppState, binding_id: BindingId) -> Result<()
             "binding missing or expired",
         )
     })?;
-    if record.offer_id.as_str() != "llm.chat" {
+    if record.offer_id.as_str() != expect {
         return Err(openai_err(
             StatusCode::BAD_REQUEST,
             "wrong_offer",
-            format!("binding offer is {}; expected llm.chat", record.offer_id),
+            format!("binding offer is {}; expected {expect}", record.offer_id),
         ));
     }
     Ok(())
@@ -114,6 +167,7 @@ fn completion_ok(
     model: Option<String>,
     text: &str,
     invoke_id: impl std::fmt::Display,
+    finish_reason: &str,
 ) -> Json<Value> {
     let model = model.unwrap_or_else(|| "sak".into());
     Json(json!({
@@ -123,9 +177,126 @@ fn completion_ok(
         "choices": [{
             "index": 0,
             "message": { "role": "assistant", "content": text },
-            "finish_reason": "stop"
+            "finish_reason": finish_reason
         }]
     }))
+}
+
+fn record_and_count(
+    state: &AppState,
+    binding_id: BindingId,
+    offer: OfferId,
+    args: &Value,
+    resp: &InvokeResp,
+) {
+    let mut audit = state.audit.lock().expect("audit lock");
+    let invoke_id = match resp {
+        InvokeResp::Ok { invoke_id, .. } => *invoke_id,
+        InvokeResp::Error { invoke_id, .. } => invoke_id.unwrap_or_default(),
+    };
+    audit.record_invoke(invoke_id, binding_id, offer, args, resp);
+    *state.invoke_count.lock().expect("invoke lock") += 1;
+}
+
+fn map_tool_calls(calls: &[OpenAiToolCall]) -> Result<Vec<Value>, ErrResp> {
+    let mut out = Vec::with_capacity(calls.len());
+    for c in calls {
+        let args: Value = serde_json::from_str(&c.function.arguments).map_err(|e| {
+            openai_err(
+                StatusCode::BAD_REQUEST,
+                "tool_arguments_invalid",
+                format!("tool_calls {}.arguments: {e}", c.id),
+            )
+        })?;
+        out.push(json!({
+            "id": c.id,
+            "tool": c.function.name,
+            "args": args,
+        }));
+    }
+    Ok(out)
+}
+
+async fn run_tools_loop(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &ChatCompletionsRequest,
+    tool_calls: &[OpenAiToolCall],
+) -> Result<Json<Value>, ErrResp> {
+    let binding_id = parse_tools_binding_id(body, headers)?;
+    ensure_offer_binding(state, binding_id, "tools.loop")?;
+    let calls = map_tool_calls(tool_calls)?;
+    let invoke_args = json!({
+        "step_index": 0,
+        "step": { "tool_calls": calls }
+    });
+    let resp = state
+        .tools_loop
+        .invoke(InvokeReq {
+            binding_id,
+            args: invoke_args.clone(),
+            invoke_id: None,
+            offer: Some(claim_tools_loop()),
+        })
+        .await;
+    record_and_count(state, binding_id, claim_tools_loop(), &invoke_args, &resp);
+    match resp {
+        InvokeResp::Ok { result, invoke_id } => {
+            let text = result.to_string();
+            Ok(completion_ok(
+                body.model.clone(),
+                &text,
+                invoke_id,
+                "tool_calls",
+            ))
+        }
+        InvokeResp::Error { code, message, .. } => {
+            Err(openai_err(status_for(code), code.as_str(), message))
+        }
+    }
+}
+
+async fn run_llm_chat(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &ChatCompletionsRequest,
+) -> Result<Json<Value>, ErrResp> {
+    let binding_id = parse_llm_binding_id(body, headers)?;
+    ensure_offer_binding(state, binding_id, "llm.chat")?;
+    let messages: Vec<Value> = body
+        .messages
+        .iter()
+        .map(|m| {
+            json!({
+                "role": m.role,
+                "content": m.content.clone().unwrap_or_default()
+            })
+        })
+        .collect();
+    let invoke_args = json!({ "messages": messages, "model": body.model });
+    let resp = state
+        .llm
+        .invoke(InvokeReq {
+            binding_id,
+            args: invoke_args.clone(),
+            invoke_id: None,
+            offer: Some(claim_llm()),
+        })
+        .await;
+    record_and_count(state, binding_id, claim_llm(), &invoke_args, &resp);
+    match resp {
+        InvokeResp::Ok { result, invoke_id } => {
+            let text = result
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            Ok(completion_ok(body.model.clone(), &text, invoke_id, "stop"))
+        }
+        InvokeResp::Error { code, message, .. } => {
+            Err(openai_err(status_for(code), code.as_str(), message))
+        }
+    }
 }
 
 async fn chat_completions(
@@ -147,48 +318,12 @@ async fn chat_completions(
             "messages must be non-empty",
         ));
     }
-    let binding_id = parse_binding_id(&body, &headers)?;
-    ensure_llm_chat_binding(&state, binding_id)?;
-
-    let messages: Vec<Value> = body
-        .messages
-        .iter()
-        .map(|m| json!({ "role": m.role, "content": m.content }))
-        .collect();
-    let invoke_args = json!({ "messages": messages, "model": body.model });
-    let resp = state
-        .llm
-        .invoke(InvokeReq {
-            binding_id,
-            args: invoke_args.clone(),
-            invoke_id: None,
-            offer: Some(claim_llm()),
-        })
-        .await;
-
-    {
-        let mut audit = state.audit.lock().expect("audit lock");
-        let invoke_id = match &resp {
-            InvokeResp::Ok { invoke_id, .. } => *invoke_id,
-            InvokeResp::Error { invoke_id, .. } => invoke_id.unwrap_or_default(),
-        };
-        audit.record_invoke(invoke_id, binding_id, claim_llm(), &invoke_args, &resp);
-    }
-    *state.invoke_count.lock().expect("invoke lock") += 1;
-
-    match resp {
-        InvokeResp::Ok { result, invoke_id } => {
-            let text = result
-                .get("text")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_owned();
-            Ok(completion_ok(body.model.clone(), &text, invoke_id))
-        }
-        InvokeResp::Error { code, message, .. } => {
-            Err(openai_err(status_for(code), code.as_str(), message))
+    if let Some(last) = body.messages.last() {
+        if !last.tool_calls.is_empty() {
+            return run_tools_loop(&state, &headers, &body, &last.tool_calls).await;
         }
     }
+    run_llm_chat(&state, &headers, &body).await
 }
 
 /// OpenAI-compatible chat completions router.

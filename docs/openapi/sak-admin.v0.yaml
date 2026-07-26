@@ -364,10 +364,11 @@ paths:
   /v1/chat/completions:
     post:
       operationId: chatCompletions
-      summary: OpenAI-shaped chat facade over a pre-bound llm.chat (`sak540-b`)
+      summary: OpenAI-shaped chat facade over llm.chat / tools.loop (`sak540-b`/`sak540-c`)
       description: >
-        Requires `binding_id` (body or `X-Sak-Binding-Id`). `stream=true` is rejected in v0.
-        Tools round-trip is sak540-c.
+        Chat path requires `binding_id` (body or `X-Sak-Binding-Id`) for `llm.chat`.
+        When the last message includes `tool_calls`, requires `tools_binding_id` (or
+        `X-Sak-Tools-Binding-Id`) for `tools.loop`. `stream=true` is rejected in v0.
       requestBody:
         required: true
         content:

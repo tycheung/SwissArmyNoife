@@ -1,4 +1,4 @@
-//! HTTP `OpenAI` chat completions facade (`sak540-b`).
+//! HTTP `OpenAI` chat completions facade (`sak540-b` / `sak540-c`).
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -97,4 +97,89 @@ async fn chat_completions_rejects_stream_and_missing_binding() {
         .expect("bytes");
     let v: Value = serde_json::from_slice(&body).expect("json");
     assert_eq!(v["error"]["code"], "binding_required");
+}
+
+#[tokio::test]
+async fn chat_completions_tools_round_trip() {
+    let state = AppState::new();
+    let tools_binding = state.bind_tools_loop_for_test(300);
+    let app = app_with_state(state);
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "tools_binding_id": tools_binding.to_string(),
+                        "messages": [{
+                            "role": "assistant",
+                            "tool_calls": [{
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "tools.echo",
+                                    "arguments": "{\"message\":\"hi\"}"
+                                }
+                            }]
+                        }]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .expect("post");
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let v: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(v["choices"][0]["finish_reason"], "tool_calls");
+    let content = v["choices"][0]["message"]["content"]
+        .as_str()
+        .expect("content");
+    assert!(content.contains("hi"), "{content}");
+    assert!(
+        content.contains("\"ok\":true") || content.contains("\"ok\": true"),
+        "{content}"
+    );
+}
+
+#[tokio::test]
+async fn chat_completions_tools_require_binding() {
+    let app = app_with_state(AppState::new());
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "messages": [{
+                            "role": "assistant",
+                            "tool_calls": [{
+                                "id": "call_1",
+                                "function": {
+                                    "name": "tools.echo",
+                                    "arguments": "{}"
+                                }
+                            }]
+                        }]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .expect("post");
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(res.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let v: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(v["error"]["code"], "tools_binding_required");
 }

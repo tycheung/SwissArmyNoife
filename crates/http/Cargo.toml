@@ -22,6 +22,7 @@ module-registry = { path = "../module-registry" }
 offer-capacity = { path = "../offer-capacity" }
 offer-compute = { path = "../offer-compute" }
 offer-llm = { path = "../offer-llm" }
+offer-tools = { path = "../offer-tools" }
 persist-postgres = { path = "../persist-postgres", optional = true }
 persist-sqlite = { path = "../persist-sqlite" }
 vault = { path = "../vault" }

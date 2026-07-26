@@ -6,6 +6,7 @@ use std::time::Duration;
 use control::{AuditLog, BindRequest, BindingStore, CatalogRegistry, MeterSnapshot, Principal};
 use offer_compute::ComputePlane;
 use offer_llm::{EchoChatProvider, LlmChatOffer};
+use offer_tools::ToolsLoopOffer;
 use rusqlite::Connection;
 use serde_json::json;
 use types::OfferId;
@@ -34,6 +35,8 @@ pub struct AppState {
     pub audit: Arc<Mutex<AuditLog>>,
     /// Echo-backed `llm.chat` for `OpenAI` facade (`sak540-b`).
     pub llm: Arc<LlmChatOffer<EchoChatProvider>>,
+    /// Default `tools.loop` for facade tool round-trips (`sak540-c`).
+    pub tools_loop: Arc<ToolsLoopOffer>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<PostgresCatalog>>,
@@ -43,13 +46,15 @@ impl AppState {
     /// Build empty admin state with an echo `llm.chat` offer for the facade.
     ///
     /// # Panics
-    /// If `llm.chat` catalog construction fails (fixed id; should not happen).
+    /// If `llm.chat` / `tools.loop` catalog construction fails (fixed ids).
     #[must_use]
     pub fn new() -> Self {
         let llm =
             Arc::new(LlmChatOffer::new(EchoChatProvider, Vec::new()).expect("llm.chat catalog id"));
+        let tools_loop = Arc::new(ToolsLoopOffer::with_defaults().expect("tools.loop"));
         let mut catalog = CatalogRegistry::new();
         catalog.register_offer(llm.as_ref());
+        catalog.register_offer(tools_loop.as_ref());
         Self {
             bindings: Arc::new(Mutex::new(BindingStore::new())),
             catalog: Arc::new(Mutex::new(catalog)),
@@ -58,6 +63,7 @@ impl AppState {
             vault: None,
             audit: Arc::new(Mutex::new(AuditLog::new())),
             llm,
+            tools_loop,
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }
@@ -69,12 +75,30 @@ impl AppState {
     /// If the bindings mutex is poisoned.
     #[must_use]
     pub fn bind_llm_chat_for_test(&self, ttl_secs: u64) -> types::BindingId {
+        self.bind_offer_for_test("llm.chat", ttl_secs, json!({}))
+    }
+
+    /// Create a short-lived `tools.loop` binding (`sak540-c`).
+    ///
+    /// # Panics
+    /// If the bindings mutex is poisoned.
+    #[must_use]
+    pub fn bind_tools_loop_for_test(&self, ttl_secs: u64) -> types::BindingId {
+        self.bind_offer_for_test("tools.loop", ttl_secs, json!({}))
+    }
+
+    fn bind_offer_for_test(
+        &self,
+        offer_id: &str,
+        ttl_secs: u64,
+        policy_json: serde_json::Value,
+    ) -> types::BindingId {
         let mut store = self.bindings.lock().expect("bindings lock");
         store
             .bind(BindRequest {
-                offer_id: OfferId::new("llm.chat").expect("valid"),
+                offer_id: OfferId::new(offer_id).expect("valid"),
                 principal: Principal::local(),
-                policy_json: json!({}),
+                policy_json,
                 ttl: Duration::from_secs(ttl_secs.max(1)),
             })
             .binding_id
