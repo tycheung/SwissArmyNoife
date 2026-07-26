@@ -1,0 +1,10 @@
+name: swissarmynoife
+description: SwissArmyNoife HTTP admin + MCP clients (sak338)
+version: 0.1.0
+repository: https://github.com/tycheung/SwissArmyNoife
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+dependencies:
+  http: ^1.2.0
+dev_dependencies:
+  test: ^1.25.0

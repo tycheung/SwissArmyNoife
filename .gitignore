@@ -55,3 +55,7 @@ sdks/php/.phpunit.result.cache
 
 # C++ SDK
 sdks/cpp/build/
+
+# Dart SDK
+sdks/dart/.dart_tool/
+sdks/dart/.packages
