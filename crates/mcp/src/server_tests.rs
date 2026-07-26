@@ -70,6 +70,7 @@ async fn catalog_list_includes_seed_offers() {
     assert!(listed.contains("broker.health"));
     assert!(listed.contains("llm.chat"));
     assert!(listed.contains("llm.embed"), "sak523-a: {listed}");
+    assert!(listed.contains("llm.resolve"), "sak523-c: {listed}");
 }
 
 #[tokio::test]

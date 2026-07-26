@@ -22,6 +22,7 @@ impl McpServer {
         let result = match offer_id {
             "llm.chat" => self.offers.llm.bind(binding_id, policy).await,
             "llm.embed" => self.offers.llm_embed.bind(binding_id, policy).await,
+            "llm.resolve" => self.offers.llm_resolve.bind(binding_id, policy).await,
             "llm.preflight" => self.offers.llm_preflight.bind(binding_id, policy).await,
             "llm.ollama.manage" => self.offers.llm_ollama_manage.bind(binding_id, policy).await,
             "llm.telemetry" => self.offers.llm_telemetry.bind(binding_id, policy).await,
@@ -51,6 +52,7 @@ impl McpServer {
         match offer_id {
             "llm.chat" => self.offers.llm.unbind(binding_id).await,
             "llm.embed" => self.offers.llm_embed.unbind(binding_id).await,
+            "llm.resolve" => self.offers.llm_resolve.unbind(binding_id).await,
             "llm.preflight" => self.offers.llm_preflight.unbind(binding_id).await,
             "llm.ollama.manage" => self.offers.llm_ollama_manage.unbind(binding_id).await,
             "llm.telemetry" => self.offers.llm_telemetry.unbind(binding_id).await,
@@ -107,6 +109,7 @@ impl McpServer {
         let resp = match offer_id.as_str() {
             "llm.chat" => dispatcher.invoke(&self.offers.llm, req).await,
             "llm.embed" => dispatcher.invoke(&self.offers.llm_embed, req).await,
+            "llm.resolve" => dispatcher.invoke(&self.offers.llm_resolve, req).await,
             "llm.preflight" => dispatcher.invoke(&self.offers.llm_preflight, req).await,
             "llm.ollama.manage" => dispatcher.invoke(&self.offers.llm_ollama_manage, req).await,
             "llm.telemetry" => dispatcher.invoke(&self.offers.llm_telemetry, req).await,
