@@ -15,7 +15,7 @@ use offer_memory::{
     MemoryEmbedOffer, MemoryIndexOffer, MemoryPlane, MemoryScopeOffer, MemorySearchOffer,
 };
 use offer_research::{ResearchBriefOffer, ResearchFetchOffer};
-use offer_sandbox::{NoneBackend, SandboxExecOffer, StubBackend};
+use offer_sandbox::{FilesystemJail, NoneBackend, SandboxExecOffer, SandboxJailOffer, StubBackend};
 use offer_tools::{ToolsLoopOffer, ToolsRegistryOffer};
 use provider_anthropic::AnthropicProvider;
 use provider_core::{ChatRequest, ChatResponse, ProviderError};
@@ -230,6 +230,7 @@ pub struct LiveOffers {
     pub llm_ollama_manage: LlmOllamaManageOffer,
     pub llm_telemetry: LlmTelemetryOffer,
     pub sandbox: LiveSandbox,
+    pub sandbox_jail: SandboxJailOffer,
     pub egress: EgressCheckOffer,
     pub egress_fetch: EgressFetchOffer<offer_egress::ReqwestGet>,
     pub memory_index: MemoryIndexOffer,
@@ -255,6 +256,8 @@ impl LiveOffers {
     /// or nested offer construction fails.
     pub fn from_env() -> Result<Self, ErrorCode> {
         let jail: PathBuf = env::config_dir().join("sandbox-jail");
+        std::fs::create_dir_all(&jail).map_err(|_| ErrorCode::SchemaInvalid)?;
+        let jail_fs = FilesystemJail::new(&jail).map_err(|_| ErrorCode::SchemaInvalid)?;
         let plane = Arc::new(MemoryPlane::new());
         let compute = Arc::new(ComputePlane::from_env()?);
         let probe: Arc<dyn offer_capacity::HardwareProbe> =
@@ -284,6 +287,7 @@ impl LiveOffers {
             llm_ollama_manage: LlmOllamaManageOffer::localhost()?,
             llm_telemetry: LlmTelemetryOffer::new()?,
             sandbox: LiveSandbox::from_env(&jail)?,
+            sandbox_jail: SandboxJailOffer::new(jail_fs)?,
             egress: EgressCheckOffer::new()?,
             egress_fetch: EgressFetchOffer::new()?,
             memory_index: MemoryIndexOffer::new(Arc::clone(&plane))?,
@@ -311,6 +315,7 @@ impl LiveOffers {
         catalog.register_offer(&self.llm_ollama_manage);
         catalog.register_offer(&self.llm_telemetry);
         catalog.register_offer(&self.sandbox);
+        catalog.register_offer(&self.sandbox_jail);
         catalog.register_offer(&self.egress);
         catalog.register_offer(&self.egress_fetch);
         catalog.register_offer(&self.memory_index);

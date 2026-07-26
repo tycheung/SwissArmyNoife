@@ -60,7 +60,7 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v15"));
+    assert!(text.contains("v16"));
 }
 
 #[tokio::test]
@@ -75,6 +75,7 @@ async fn catalog_list_includes_seed_offers() {
     assert!(listed.contains("memory.scope"), "sak524-c: {listed}");
     assert!(listed.contains("tools.registry"), "sak525-b: {listed}");
     assert!(listed.contains("tools.loop"), "sak525-d: {listed}");
+    assert!(listed.contains("sandbox.jail"), "sak526-b: {listed}");
 }
 
 #[tokio::test]
@@ -378,6 +379,42 @@ async fn bind_invoke_tools_loop_ok_deny_budget() {
         other => panic!("expected budget.exhausted, got {other:?}"),
     }
 
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
+async fn bind_invoke_sandbox_jail_probe_escape() {
+    let (server, _tmp) = test_server();
+    let bound = server
+        .bind(Parameters(sample_bind("sandbox.jail")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let raw = server
+        .sandbox_jail(Parameters(crate::tool_args::SandboxJailArgs {
+            binding_id: binding_id.clone(),
+            op: Some("probe".into()),
+            path: Some("../secret".into()),
+        }))
+        .await
+        .expect("sandbox_jail");
+    let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
+    match resp {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["inside"], false);
+            let s = result.to_string();
+            assert!(!s.contains(":\\"));
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
+    }
     server
         .unbind(Parameters(UnbindArgs { binding_id }))
         .await

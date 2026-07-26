@@ -27,6 +27,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "ollama_manage",
     "llm_telemetry",
     "sandbox_exec",
+    "sandbox_jail",
     "fs_read",
     "fs_write",
     "fs_edit",
@@ -241,6 +242,24 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "ok",
+    );
+
+    let jail_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({"offer_id": "sandbox.jail", "ttl_secs": 300}),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "sandbox_jail",
+            json!({ "binding_id": jail_id, "op": "probe", "path": "../secret" }),
+        )
+        .await?,
+        "inside",
     );
 
     call(

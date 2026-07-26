@@ -9,7 +9,8 @@ use crate::tool_args::{
     FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
     MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs,
     OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
-    SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
+    SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs,
+    ToolsRegistryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -28,6 +29,7 @@ pub fn tool_input_schemas() -> Value {
     insert::<OllamaManageArgs>(&mut m, "ollama_manage");
     insert::<TelemetryArgs>(&mut m, "llm_telemetry");
     insert::<SandboxExecToolArgs>(&mut m, "sandbox_exec");
+    insert::<SandboxJailArgs>(&mut m, "sandbox_jail");
     insert::<FsReadArgs>(&mut m, "fs_read");
     insert::<FsWriteArgs>(&mut m, "fs_write");
     insert::<FsEditArgs>(&mut m, "fs_edit");
@@ -102,6 +104,10 @@ mod tests {
         assert!(
             doc["tools"]["tools_loop"].is_object(),
             "sak525-d tools_loop schema"
+        );
+        assert!(
+            doc["tools"]["sandbox_jail"].is_object(),
+            "sak526-b sandbox_jail schema"
         );
     }
 }

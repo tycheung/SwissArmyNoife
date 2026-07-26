@@ -257,6 +257,18 @@ pub(crate) struct ToolsLoopArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct SandboxJailArgs {
+    /// Binding id from `bind` for `sandbox.jail`.
+    pub binding_id: String,
+    /// `root` | `probe` | `policy` (default `policy`).
+    #[serde(default)]
+    pub op: Option<String>,
+    /// Relative path for `probe`.
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,

@@ -5,7 +5,7 @@ use crate::tool_args::{
     CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
     EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
     MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs,
-    ResearchFetchArgs, ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
+    ResearchFetchArgs, SandboxJailArgs, ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
 use crate::workspace_tools::{fs_err, mode_label, parse_read_mode, shell_err};
@@ -169,6 +169,27 @@ impl McpServer {
             }
         });
         let claim = OfferId::new("tools.loop").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn sandbox_jail_inner(
+        &self,
+        args: SandboxJailArgs,
+    ) -> Result<String, McpError> {
+        let SandboxJailArgs {
+            binding_id,
+            op,
+            path,
+        } = args;
+        let binding_id = parse_binding_id(&binding_id)?;
+        let invoke_args = json!({
+            "op": op.unwrap_or_else(|| "policy".into()),
+            "path": path,
+        });
+        let claim = OfferId::new("sandbox.jail").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;
