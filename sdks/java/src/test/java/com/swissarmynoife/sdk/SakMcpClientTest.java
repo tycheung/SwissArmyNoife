@@ -33,7 +33,7 @@ class SakMcpClientTest {
             case "initialize" ->
                 writeJson(exchange, 200, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}", "sess-java-1");
             case "notifications/initialized" -> {
-              try (HttpExchange ignored = exchange) {
+              try (exchange) {
                 exchange.sendResponseHeaders(202, -1);
               }
             }
@@ -46,7 +46,7 @@ class SakMcpClientTest {
                   null);
             }
             default -> {
-              try (HttpExchange ignored = exchange) {
+              try (exchange) {
                 exchange.sendResponseHeaders(500, -1);
               }
             }
@@ -97,7 +97,7 @@ class SakMcpClientTest {
           switch (method) {
             case "initialize" -> writeJson(exchange, 200, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}", "s2");
             case "notifications/initialized" -> {
-              try (HttpExchange ignored = exchange) {
+              try (exchange) {
                 exchange.sendResponseHeaders(202, -1);
               }
             }
