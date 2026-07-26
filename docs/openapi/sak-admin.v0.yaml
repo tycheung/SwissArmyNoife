@@ -367,11 +367,13 @@ paths:
   /v1/chat/completions:
     post:
       operationId: chatCompletions
-      summary: OpenAI-shaped chat facade over llm.chat / tools.loop (`sak540-b`/`sak540-c`)
+      summary: OpenAI-shaped chat facade over llm.chat / tools.loop (`sak540`/`sak542`)
       description: >
         Chat path requires `binding_id` (body or `X-Sak-Binding-Id`) for `llm.chat`.
         When the last message includes `tool_calls`, requires `tools_binding_id` (or
-        `X-Sak-Tools-Binding-Id`) for `tools.loop`. `stream=true` is rejected in v0.
+        `X-Sak-Tools-Binding-Id`) for `tools.loop`. For `llm.chat`, `stream=true` returns
+        `text/event-stream` (OpenAI-ish chunks + `data: [DONE]`). For `tool_calls`,
+        `stream=true` is rejected with `stream_not_supported` (`sak543-a`).
       requestBody:
         required: true
         content:
@@ -382,6 +384,8 @@ paths:
               properties:
                 binding_id:
                   type: string
+                tools_binding_id:
+                  type: string
                 messages:
                   type: array
                   items:
@@ -390,13 +394,27 @@ paths:
                   type: string
                 stream:
                   type: boolean
+                  description: >
+                    When true on the llm.chat path, response is SSE (`text/event-stream`).
+                    Not supported with tool_calls.
       responses:
         "200":
-          description: OpenAI-ish chat.completion
+          description: >
+            OpenAI-ish `chat.completion` JSON, or SSE `chat.completion.chunk` stream when
+            `stream=true` on the llm.chat path.
+          content:
+            application/json:
+              schema:
+                type: object
+            text/event-stream:
+              schema:
+                type: string
         "400":
-          description: Invalid request / stream not supported / wrong offer
+          description: Invalid request / tools stream_not_supported / wrong offer
         "401":
           description: Missing or invalid bearer (`MCP_HTTP_TOKEN`)
+        "404":
+          description: Binding missing or expired
       security:
         - bearerAuth: []
 

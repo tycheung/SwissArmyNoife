@@ -33,4 +33,6 @@ fn sak_admin_openapi_stub_exists() {
     assert!(text.contains("/v1/chat/completions"));
     assert!(text.contains("bearerAuth"));
     assert!(text.contains("MCP_HTTP_TOKEN"));
+    assert!(text.contains("text/event-stream"));
+    assert!(text.contains("stream_not_supported"));
 }
