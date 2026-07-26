@@ -60,7 +60,7 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v12"));
+    assert!(text.contains("v13"));
 }
 
 #[tokio::test]
@@ -72,6 +72,7 @@ async fn catalog_list_includes_seed_offers() {
     assert!(listed.contains("llm.embed"), "sak523-a: {listed}");
     assert!(listed.contains("llm.resolve"), "sak523-c: {listed}");
     assert!(listed.contains("memory.embed"), "sak524-a: {listed}");
+    assert!(listed.contains("memory.scope"), "sak524-c: {listed}");
 }
 
 #[tokio::test]
@@ -196,6 +197,58 @@ async fn bind_invoke_memory_embed_echo_backend() {
         InvokeResp::Error { code, message, .. } => {
             panic!("unexpected error {code}: {message}")
         }
+    }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
+async fn bind_invoke_memory_scope_and_cross_kind_deny() {
+    let (server, _tmp) = test_server();
+    let mut args = sample_bind("memory.scope");
+    args.policy = json!({ "memory": { "allowed_scopes": ["repo"] } });
+    let bound = server.bind(Parameters(args)).await.expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let ok_raw = server
+        .memory_scope(Parameters(crate::tool_args::MemoryScopeArgs {
+            binding_id: binding_id.clone(),
+            op: Some("hash".into()),
+            kind: Some("repo".into()),
+            id: Some("Acme/App".into()),
+        }))
+        .await
+        .expect("memory_scope hash");
+    let ok: InvokeResp = serde_json::from_str(&ok_raw).expect("InvokeResp");
+    match ok {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["kind"], "repo");
+            assert!(result["scope_key"].as_str().expect("key").len() > 8);
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
+    }
+    let deny_raw = server
+        .memory_scope(Parameters(crate::tool_args::MemoryScopeArgs {
+            binding_id: binding_id.clone(),
+            op: Some("hash".into()),
+            kind: Some("user".into()),
+            id: Some("alice".into()),
+        }))
+        .await
+        .expect("memory_scope deny path");
+    let deny: InvokeResp = serde_json::from_str(&deny_raw).expect("InvokeResp");
+    match deny {
+        InvokeResp::Error {
+            code: types::ErrorCode::PolicyDenied,
+            ..
+        } => {}
+        other => panic!("expected policy.denied, got {other:?}"),
     }
     server
         .unbind(Parameters(UnbindArgs { binding_id }))

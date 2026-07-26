@@ -208,6 +208,19 @@ pub(crate) struct MemoryEmbedArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct MemoryScopeArgs {
+    /// Binding id from `bind` for `memory.scope`.
+    pub binding_id: String,
+    /// `hash` | `inspect` | `kinds` (default `hash`).
+    #[serde(default)]
+    pub op: Option<String>,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,

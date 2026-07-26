@@ -1,5 +1,7 @@
 //! `memory.scope` — hash / list scope kinds (repo / user / org).
 
+use std::sync::Mutex;
+
 use control::{CatalogEntry, Offer};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -10,6 +12,8 @@ use crate::scope::{scope_hash, ScopeKind};
 /// First-party `memory.scope` offer.
 pub struct MemoryScopeOffer {
     entry: CatalogEntry,
+    /// `None` = all kinds allowed (frozen at last bind, egress-style).
+    allowed: Mutex<Option<Vec<ScopeKind>>>,
 }
 
 impl MemoryScopeOffer {
@@ -18,6 +22,7 @@ impl MemoryScopeOffer {
     pub fn new() -> Result<Self, ErrorCode> {
         Ok(Self {
             entry: CatalogEntry::new("memory.scope", "0.1.0")?,
+            allowed: Mutex::new(None),
         })
     }
 }
@@ -31,13 +36,17 @@ impl Offer for MemoryScopeOffer {
         Ok("res-memory.scope".into())
     }
 
-    async fn bind(&self, _binding_id: BindingId, _params: Value) -> Result<(), ErrorCode> {
+    async fn bind(&self, _binding_id: BindingId, params: Value) -> Result<(), ErrorCode> {
+        let allowed = parse_allowed(&params)?;
+        let mut g = self.allowed.lock().map_err(|_| ErrorCode::SchemaInvalid)?;
+        *g = allowed;
         Ok(())
     }
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
         let invoke_id = req.invoke_id.unwrap_or_default();
-        match run_scope(&req.args) {
+        let allowed = self.allowed.lock().map(|g| g.clone()).unwrap_or(None);
+        match run_scope(&req.args, allowed.as_deref()) {
             Ok(result) => InvokeResp::ok(invoke_id, result),
             Err((code, message)) => InvokeResp::Error {
                 invoke_id: Some(invoke_id),
@@ -54,6 +63,25 @@ impl Offer for MemoryScopeOffer {
     async fn health(&self) -> Result<(), ErrorCode> {
         Ok(())
     }
+}
+
+fn parse_allowed(params: &Value) -> Result<Option<Vec<ScopeKind>>, ErrorCode> {
+    let Some(arr) = params
+        .pointer("/memory/allowed_scopes")
+        .or_else(|| params.get("allowed_scopes"))
+        .and_then(Value::as_array)
+    else {
+        return Ok(None);
+    };
+    if arr.is_empty() {
+        return Ok(None);
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for v in arr {
+        let s = v.as_str().ok_or(ErrorCode::SchemaInvalid)?;
+        out.push(parse_kind(s).map_err(|(c, _)| c)?);
+    }
+    Ok(Some(out))
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,7 +110,7 @@ fn parse_kind(raw: &str) -> Result<ScopeKind, (ErrorCode, String)> {
     }
 }
 
-fn run_scope(args: &Value) -> Result<Value, (ErrorCode, String)> {
+fn run_scope(args: &Value, allowed: Option<&[ScopeKind]>) -> Result<Value, (ErrorCode, String)> {
     let parsed: ScopeArgs = serde_json::from_value(args.clone())
         .map_err(|e| (ErrorCode::SchemaInvalid, format!("scope args: {e}")))?;
     match parsed.op.as_str() {
@@ -100,6 +128,14 @@ fn run_scope(args: &Value) -> Result<Value, (ErrorCode, String)> {
                 return Err((ErrorCode::SchemaInvalid, "id must be non-empty".into()));
             }
             let kind = parse_kind(kind_raw)?;
+            if let Some(allow) = allowed {
+                if !allow.contains(&kind) {
+                    return Err((
+                        ErrorCode::PolicyDenied,
+                        format!("scope kind {} not in allowed_scopes", kind.as_str()),
+                    ));
+                }
+            }
             let id_norm = id.trim().to_ascii_lowercase();
             let scope_key = scope_hash(kind, id);
             Ok(json!({
@@ -172,5 +208,41 @@ mod tests {
             })
             .await;
         assert!(matches!(resp, InvokeResp::Error { .. }));
+    }
+
+    #[tokio::test]
+    async fn bind_allowed_scopes_denies_cross_kind() {
+        let offer = MemoryScopeOffer::new().expect("offer");
+        offer
+            .bind(
+                BindingId::new(),
+                json!({ "memory": { "allowed_scopes": ["repo"] } }),
+            )
+            .await
+            .expect("bind");
+        let deny = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                invoke_id: None,
+                args: json!({ "kind": "user", "id": "alice" }),
+                offer: None,
+            })
+            .await;
+        match deny {
+            InvokeResp::Error {
+                code: ErrorCode::PolicyDenied,
+                ..
+            } => {}
+            other => panic!("expected policy.denied, got {other:?}"),
+        }
+        let ok = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                invoke_id: None,
+                args: json!({ "kind": "repo", "id": "acme/app" }),
+                offer: None,
+            })
+            .await;
+        assert!(matches!(ok, InvokeResp::Ok { .. }));
     }
 }

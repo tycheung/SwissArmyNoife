@@ -36,6 +36,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "egress_fetch",
     "memory_index",
     "memory_embed",
+    "memory_scope",
     "memory_search",
     "research_fetch",
     "research_brief",
@@ -399,6 +400,33 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "vectors",
+    );
+
+    let mem_scope_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({
+                "offer_id": "memory.scope",
+                "ttl_secs": 300,
+                "policy": { "memory": { "allowed_scopes": ["repo", "user", "org"] } }
+            }),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "memory_scope",
+            json!({
+                "binding_id": mem_scope_id,
+                "op": "hash",
+                "kind": "repo",
+                "id": "matrix/app"
+            }),
+        )
+        .await?,
+        "scope_key",
     );
 
     let research_fetch_id = binding_id(

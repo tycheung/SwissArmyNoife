@@ -4,8 +4,8 @@ use crate::server::McpServer;
 use crate::tool_args::{
     CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
     EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
-    MemoryEmbedArgs, MemoryIndexArgs, MemorySearchArgs, ResearchBriefArgs, ResearchFetchArgs,
-    ShellExecArgs,
+    MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs,
+    ResearchFetchArgs, ShellExecArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
 use crate::workspace_tools::{fs_err, mode_label, parse_read_mode, shell_err};
@@ -97,6 +97,29 @@ impl McpServer {
         let binding_id = parse_binding_id(&binding_id)?;
         let invoke_args = json!({ "inputs": inputs, "model": model });
         let claim = OfferId::new("memory.embed").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn memory_scope_inner(
+        &self,
+        args: MemoryScopeArgs,
+    ) -> Result<String, McpError> {
+        let MemoryScopeArgs {
+            binding_id,
+            op,
+            kind,
+            id,
+        } = args;
+        let binding_id = parse_binding_id(&binding_id)?;
+        let invoke_args = json!({
+            "op": op.unwrap_or_else(|| "hash".into()),
+            "kind": kind,
+            "id": id,
+        });
+        let claim = OfferId::new("memory.scope").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;
