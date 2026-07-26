@@ -8,8 +8,8 @@ use offer_capacity::{CapacityFitOffer, CapacityPressureOffer, CapacityProbeOffer
 use offer_compute::{ComputeNodeOffer, ComputePlane, ComputeWorkOffer};
 use offer_egress::{EgressCheckOffer, EgressFetchOffer};
 use offer_llm::{
-    ChatProviders, EchoChatProvider, LlmChatOffer, LlmEmbedOffer, LlmOllamaManageOffer,
-    LlmPreflightOffer, LlmResolveOffer, LlmTelemetryOffer,
+    ChatProviders, ConnectionRef, EchoChatProvider, LlmChatOffer, LlmEmbedOffer,
+    LlmOllamaManageOffer, LlmPreflightOffer, LlmResolveOffer, LlmTelemetryOffer,
 };
 use offer_memory::{
     MemoryEmbedOffer, MemoryIndexOffer, MemoryPlane, MemoryScopeOffer, MemorySearchOffer,
@@ -275,11 +275,12 @@ impl LiveOffers {
                 "echo".into(),
             ]
         };
+        let connections = vault_connection_refs();
         Ok(Self {
-            llm: LlmChatOffer::new(McpLlmRouter::from_env(), vec![])?,
+            llm: LlmChatOffer::new(McpLlmRouter::from_env(), connections.clone())?,
             // Echo embed vectors until live provider routing lands with MCP tool (sak523-b).
             llm_embed: LlmEmbedOffer::new(EchoChatProvider)?,
-            llm_resolve: LlmResolveOffer::new(vec![])?,
+            llm_resolve: LlmResolveOffer::new(connections)?,
             llm_preflight: LlmPreflightOffer::new(
                 Arc::new(crate::capacity_fit::CapacityFitAdvisor::from_env()),
                 reachable,
@@ -332,5 +333,58 @@ impl LiveOffers {
         catalog.register_offer(&self.compute_node);
         catalog.register_offer(&self.compute_work);
         catalog
+    }
+}
+
+/// Load vault connection metadata for LLM resolve (no secrets).
+fn vault_connection_refs() -> Vec<ConnectionRef> {
+    let Ok(conn) = persist_sqlite::open_default() else {
+        return Vec::new();
+    };
+    match persist_sqlite::list_connections(&conn) {
+        Ok(rows) => rows
+            .into_iter()
+            .map(|m| ConnectionRef {
+                connection_id: m.connection_id,
+                provider: m.provider,
+                label: m.label,
+            })
+            .collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vault::SecretString;
+
+    #[test]
+    fn vault_refs_load_when_sqlite_has_rows() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::env::set_var(persist_sqlite::CONFIG_DIR, tmp.path());
+        std::env::set_var(
+            vault::VAULT_KEY,
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        );
+        let conn = persist_sqlite::open_default().expect("db");
+        let key = vault::VaultKey::bootstrap().expect("key");
+        persist_sqlite::put_connection(
+            &conn,
+            &key,
+            "conn-live",
+            "openai",
+            "prod",
+            &SecretString::new("sk-test"),
+        )
+        .expect("put");
+        let refs = vault_connection_refs();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].connection_id, "conn-live");
+        assert_eq!(refs[0].provider, "openai");
+        let dbg = format!("{refs:?}");
+        assert!(!dbg.contains("sk-test"));
+        std::env::remove_var(persist_sqlite::CONFIG_DIR);
+        std::env::remove_var(vault::VAULT_KEY);
     }
 }
