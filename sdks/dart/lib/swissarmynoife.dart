@@ -2,3 +2,5 @@
 library swissarmynoife;
 
 export 'src/sdk_info.dart';
+export 'src/client.dart';
+export 'src/mcp.dart';
