@@ -309,6 +309,25 @@ paths:
           description: Not found
         "503":
           description: Vault store unavailable
+  /v1/sak/audit:
+    get:
+      operationId: listAudit
+      summary: List redacted invoke audit events (filter offer_id / since)
+      parameters:
+        - name: offer_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: since
+          in: query
+          required: false
+          description: Unix epoch seconds (inclusive)
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit events with secrets already redacted
   /v1/sak/metrics:
     get:
       operationId: metrics

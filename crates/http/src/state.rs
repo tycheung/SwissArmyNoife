@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex, OnceLock};
 
-use control::{BindingStore, CatalogRegistry, MeterSnapshot};
+use control::{AuditLog, BindingStore, CatalogRegistry, MeterSnapshot};
 use offer_compute::ComputePlane;
 use rusqlite::Connection;
 use vault::VaultKey;
@@ -26,6 +26,8 @@ pub struct AppState {
     pub compute_plane: Arc<OnceLock<Result<Arc<ComputePlane>, String>>>,
     /// Vault connections when `SQLite` + vault key open (`sak527-a`).
     pub vault: Option<Arc<VaultStore>>,
+    /// Process-local invoke audit (`sak528-a`).
+    pub audit: Arc<Mutex<AuditLog>>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<PostgresCatalog>>,
@@ -40,6 +42,7 @@ impl AppState {
             invoke_count: Arc::new(Mutex::new(0)),
             compute_plane: Arc::new(OnceLock::new()),
             vault: None,
+            audit: Arc::new(Mutex::new(AuditLog::new())),
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }

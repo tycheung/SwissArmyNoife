@@ -14,6 +14,8 @@ pub struct AuditEvent {
     pub status: AuditStatus,
     pub code: Option<ErrorCode>,
     pub detail: Value,
+    /// Append time (for query filters).
+    pub created_at: SystemTime,
     /// Set by [`AuditLog::soft_delete`]; excluded from [`AuditLog::list_active`].
     pub deleted_at: Option<SystemTime>,
 }
@@ -71,6 +73,7 @@ impl AuditLog {
             status,
             code,
             detail: json!({ "args": redact_json(args) }),
+            created_at: SystemTime::now(),
             deleted_at: None,
         });
     }
@@ -105,6 +108,27 @@ impl AuditLog {
         self.events
             .iter()
             .filter(|e| e.deleted_at.is_none())
+            .collect()
+    }
+
+    /// Active events filtered by optional `offer_id` and/or `since` (inclusive).
+    #[must_use]
+    pub fn query(&self, offer_id: Option<&str>, since: Option<SystemTime>) -> Vec<&AuditEvent> {
+        self.list_active()
+            .into_iter()
+            .filter(|e| {
+                if let Some(want) = offer_id {
+                    if e.offer_id.as_str() != want {
+                        return false;
+                    }
+                }
+                if let Some(since) = since {
+                    if e.created_at < since {
+                        return false;
+                    }
+                }
+                true
+            })
             .collect()
     }
 
@@ -221,6 +245,27 @@ mod tests {
         assert!(log.soft_delete(invoke_id, at));
         assert!(log.list_active().is_empty());
         assert_eq!(log.len(), 1);
+    }
+
+    #[test]
+    fn query_filters_offer_and_since() {
+        let mut log = AuditLog::new();
+        let id = InvokeId::from_uuid(Uuid::nil());
+        let binding_id = BindingId::from_uuid(Uuid::from_u128(1));
+        let offer = OfferId::new("llm.chat").expect("valid");
+        log.record_invoke(
+            id,
+            binding_id,
+            offer,
+            &json!({ "api_key": "sk-x" }),
+            &InvokeResp::ok(id, json!({})),
+        );
+        assert_eq!(log.query(Some("llm.chat"), None).len(), 1);
+        assert!(log.query(Some("other"), None).is_empty());
+        let future = SystemTime::now() + std::time::Duration::from_secs(3600);
+        assert!(log.query(None, Some(future)).is_empty());
+        let ev = log.query(Some("llm.chat"), None)[0];
+        assert_eq!(ev.detail["args"]["api_key"], "[REDACTED]");
     }
 
     #[test]
