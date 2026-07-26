@@ -11,8 +11,9 @@ use axum::{
 use control::Offer;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use types::{BindingId, ErrorCode, InvokeReq, InvokeResp, OfferId};
+use types::{BindingId, InvokeReq, InvokeResp, OfferId};
 
+use crate::openai_errors::{openai_err, openai_err_code, status_for, ErrResp};
 use crate::sse::{encode_completion_stream, encode_done, encode_error};
 use crate::state::AppState;
 
@@ -50,33 +51,6 @@ struct OpenAiFunction {
     name: String,
     /// JSON object encoded as a string (`OpenAI` wire shape).
     arguments: String,
-}
-
-type ErrResp = (StatusCode, Json<Value>);
-
-fn openai_err(status: StatusCode, code: &str, message: impl Into<String>) -> ErrResp {
-    (
-        status,
-        Json(json!({
-            "error": {
-                "message": message.into(),
-                "type": "invalid_request_error",
-                "code": code
-            }
-        })),
-    )
-}
-
-fn status_for(code: ErrorCode) -> StatusCode {
-    match code {
-        ErrorCode::PolicyDenied | ErrorCode::EgressDenied => StatusCode::FORBIDDEN,
-        ErrorCode::BindingExpired | ErrorCode::OfferNotFound | ErrorCode::VaultMissing => {
-            StatusCode::NOT_FOUND
-        }
-        ErrorCode::SchemaInvalid => StatusCode::BAD_REQUEST,
-        ErrorCode::BudgetExhausted => StatusCode::TOO_MANY_REQUESTS,
-        _ => StatusCode::BAD_GATEWAY,
-    }
 }
 
 fn claim_llm() -> OfferId {
@@ -262,9 +236,7 @@ async fn run_tools_loop(
                 "tool_calls",
             ))
         }
-        InvokeResp::Error { code, message, .. } => {
-            Err(openai_err(status_for(code), code.as_str(), message))
-        }
+        InvokeResp::Error { code, message, .. } => Err(openai_err_code(code, message)),
     }
 }
 
@@ -314,9 +286,7 @@ async fn run_llm_chat(
                 .to_owned();
             Ok(completion_ok(body.model.clone(), &text, invoke_id, "stop"))
         }
-        InvokeResp::Error { code, message, .. } => {
-            Err(openai_err(status_for(code), code.as_str(), message))
-        }
+        InvokeResp::Error { code, message, .. } => Err(openai_err_code(code, message)),
     }
 }
 

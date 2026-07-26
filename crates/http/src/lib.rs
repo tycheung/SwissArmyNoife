@@ -1,6 +1,7 @@
 //! `SwissArmyNoife` local HTTP admin surface (`sak363`) — list installed modules only.
 
 mod auth;
+mod openai_errors;
 mod routes;
 mod sse;
 mod state;
