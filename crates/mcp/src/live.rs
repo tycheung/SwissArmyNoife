@@ -8,8 +8,8 @@ use offer_capacity::{CapacityFitOffer, CapacityPressureOffer, CapacityProbeOffer
 use offer_compute::{ComputeNodeOffer, ComputePlane, ComputeWorkOffer};
 use offer_egress::{EgressCheckOffer, EgressFetchOffer};
 use offer_llm::{
-    ChatProviders, EchoChatProvider, LlmChatOffer, LlmOllamaManageOffer, LlmPreflightOffer,
-    LlmTelemetryOffer,
+    ChatProviders, EchoChatProvider, LlmChatOffer, LlmEmbedOffer, LlmOllamaManageOffer,
+    LlmPreflightOffer, LlmTelemetryOffer,
 };
 use offer_memory::{MemoryIndexOffer, MemoryPlane, MemorySearchOffer};
 use offer_research::{ResearchBriefOffer, ResearchFetchOffer};
@@ -221,6 +221,7 @@ impl Offer for LiveSandbox {
 /// Process-local runnable offers for MCP dispatch.
 pub struct LiveOffers {
     pub llm: LlmChatOffer<McpLlmRouter>,
+    pub llm_embed: LlmEmbedOffer<EchoChatProvider>,
     pub llm_preflight: LlmPreflightOffer,
     pub llm_ollama_manage: LlmOllamaManageOffer,
     pub llm_telemetry: LlmTelemetryOffer,
@@ -265,6 +266,8 @@ impl LiveOffers {
         };
         Ok(Self {
             llm: LlmChatOffer::new(McpLlmRouter::from_env(), vec![])?,
+            // Echo embed vectors until live provider routing lands with MCP tool (sak523-b).
+            llm_embed: LlmEmbedOffer::new(EchoChatProvider)?,
             llm_preflight: LlmPreflightOffer::new(
                 Arc::new(crate::capacity_fit::CapacityFitAdvisor::from_env()),
                 reachable,
@@ -289,6 +292,7 @@ impl LiveOffers {
     pub fn seed_catalog(&self) -> CatalogRegistry {
         let mut catalog = CatalogRegistry::new();
         catalog.register_offer(&self.llm);
+        catalog.register_offer(&self.llm_embed);
         catalog.register_offer(&self.llm_preflight);
         catalog.register_offer(&self.llm_ollama_manage);
         catalog.register_offer(&self.llm_telemetry);
