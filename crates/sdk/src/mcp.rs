@@ -1,4 +1,4 @@
-//! Optional MCP client wrapping [`rmcp`] Streamable HTTP (`sak348-b` / `sak348-c`).
+//! Optional MCP client wrapping [`rmcp`] Streamable HTTP (`sak348-b`…`d`).
 
 use rmcp::{
     model::{CallToolRequestParam, CallToolResult},
@@ -82,18 +82,80 @@ impl SakMcpClient {
     /// # Errors
     /// Tool call failure.
     pub async fn catalog_list(&self) -> Result<Value, SdkError> {
-        let result = self.call_tool("catalog_list", None).await?;
+        self.tools_call_value("catalog_list", None).await
+    }
+
+    /// MCP `bind` — returns tool result JSON (`sak348-d` / sak329-c).
+    ///
+    /// # Errors
+    /// Tool call failure.
+    pub async fn bind(&self, offer_id: &str) -> Result<Value, SdkError> {
+        self.tools_call_value("bind", Some(json!({ "offer_id": offer_id })))
+            .await
+    }
+
+    /// MCP `invoke` — invoke a bound offer (`sak348-d` / sak329-c).
+    ///
+    /// # Errors
+    /// Tool call failure.
+    pub async fn invoke(
+        &self,
+        binding_id: &str,
+        args: Option<Value>,
+        offer: Option<&str>,
+    ) -> Result<Value, SdkError> {
+        let mut params = json!({
+            "binding_id": binding_id,
+            "args": args.unwrap_or_else(|| json!({})),
+        });
+        if let Some(offer) = offer {
+            params["offer"] = json!(offer);
+        }
+        self.tools_call_value("invoke", Some(params)).await
+    }
+
+    /// MCP `provision` — provision an offer resource (`sak348-d` / sak329-c).
+    ///
+    /// # Errors
+    /// Tool call failure.
+    pub async fn provision(
+        &self,
+        offer_id: &str,
+        idempotency_key: Option<&str>,
+    ) -> Result<Value, SdkError> {
+        let mut params = json!({ "offer_id": offer_id });
+        if let Some(key) = idempotency_key {
+            params["idempotency_key"] = json!(key);
+        }
+        self.tools_call_value("provision", Some(params)).await
+    }
+
+    async fn tools_call_value(
+        &self,
+        name: &str,
+        arguments: Option<Value>,
+    ) -> Result<Value, SdkError> {
+        let map = match arguments {
+            None | Some(Value::Null) => None,
+            Some(Value::Object(m)) => Some(m),
+            Some(other) => {
+                return Err(SdkError::Schema(format!(
+                    "tools/call {name}: arguments must be object, got {other}"
+                )));
+            }
+        };
+        let result = self.call_tool(name, map).await?;
         serde_json::to_value(result).map_err(|e| SdkError::Schema(e.to_string()))
     }
 
     async fn call_tool(
         &self,
-        name: &'static str,
+        name: &str,
         arguments: Option<serde_json::Map<String, Value>>,
     ) -> Result<CallToolResult, SdkError> {
         self.service
             .call_tool(CallToolRequestParam {
-                name: name.into(),
+                name: name.to_string().into(),
                 arguments,
             })
             .await
@@ -164,9 +226,12 @@ mod tests {
                             .and_then(|n| n.as_str())
                             .unwrap_or("");
                         let text = match name {
-                            "ping" => "pong",
-                            "catalog_list" => "{\"offers\":[]}",
-                            other => other,
+                            "ping" => "pong".to_string(),
+                            "catalog_list" => "{\"offers\":[]}".to_string(),
+                            "bind" => "{\"binding_id\":\"b1\",\"offer_id\":\"o1\"}".to_string(),
+                            "invoke" => "{\"status\":\"ok\"}".to_string(),
+                            "provision" => "{\"status\":\"provisioned\"}".to_string(),
+                            other => other.to_string(),
                         };
                         ResponseTemplate::new(200)
                             .insert_header("content-type", "application/json")
@@ -269,5 +334,60 @@ mod tests {
             .to_str()
             .expect("utf8");
         assert_eq!(auth, "Bearer tok-348c");
+    }
+
+    #[tokio::test]
+    async fn bind_invoke_provision_post_tools_call() {
+        let server = mock_mcp().await;
+        let url = format!("{}/mcp", server.uri());
+        let client = SakMcpClient::connect(url).await.expect("connect");
+
+        let bound = client.bind("offer.llm").await.expect("bind");
+        assert!(bound["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("binding_id"));
+
+        let invoked = client
+            .invoke("b1", Some(json!({ "prompt": "hi" })), Some("offer.llm"))
+            .await
+            .expect("invoke");
+        assert!(invoked["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("ok"));
+
+        let provisioned = client
+            .provision("offer.llm", Some("idem-1"))
+            .await
+            .expect("provision");
+        assert!(provisioned["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("provisioned"));
+
+        let requests = server.received_requests().await.expect("requests");
+        let calls: Vec<Value> = requests
+            .iter()
+            .filter(|r| r.method == "POST" && rpc_method(r) == "tools/call")
+            .map(|r| serde_json::from_slice(&r.body).unwrap())
+            .collect();
+        let names: Vec<&str> = calls
+            .iter()
+            .filter_map(|b| b.pointer("/params/name").and_then(|n| n.as_str()))
+            .collect();
+        assert_eq!(names, vec!["bind", "invoke", "provision"]);
+        assert_eq!(
+            calls[1]
+                .pointer("/params/arguments/offer")
+                .and_then(|v| v.as_str()),
+            Some("offer.llm")
+        );
+        assert_eq!(
+            calls[2]
+                .pointer("/params/arguments/idempotency_key")
+                .and_then(|v| v.as_str()),
+            Some("idem-1")
+        );
     }
 }
