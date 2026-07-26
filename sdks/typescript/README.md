@@ -32,10 +32,13 @@ console.log({ health, modules, capacity, work, nodes });
 
 ### MCP (`SakMcpClient`)
 
-Streamable HTTP MCP client (v0 stub — no `initialize` session negotiation yet).
+Streamable HTTP MCP client. On first tool call (or explicit `initialize()`), negotiates a
+session (`initialize` + `notifications/initialized`) and sends `mcp-session-id` on later RPCs
+(`sak329-a`).
 
 | Method | MCP wire | Description |
 |--------|----------|-------------|
+| `initialize()` | `initialize` + `notifications/initialized` | Session handshake; captures `mcp-session-id` |
 | `ping()` | `tools/call` → `ping` | Health smoke; returns text from tool result |
 | `toolsList()` | `tools/list` | Lists broker MCP tools |
 | `catalogList()` | `tools/call` → `catalog_list` | Lists catalog offers via MCP tool |

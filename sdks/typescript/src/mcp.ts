@@ -1,4 +1,4 @@
-/** Streamable HTTP MCP client stub (`sak321-d` / `sak489-i` / `sak490-i`).
+/** Streamable HTTP MCP client (`sak321-d` / `sak329-a` / `sak489-i` / `sak490-i`).
 
  * MCP exposes `computeWork` + `claimWork` only. List/get/requeue empty-vs-miss
  * asserts are on HTTP `SakClient`; Rust `sdk` is HTTP-only.
@@ -11,6 +11,8 @@ export type FetchFn = typeof fetch;
 export type SakMcpClientOptions = {
   token?: string;
   fetch?: FetchFn;
+  /** When false, skip auto ``initialize`` (tests / raw RPC). Default true. */
+  autoInitialize?: boolean;
 };
 
 type JsonRpcResponse = {
@@ -19,6 +21,9 @@ type JsonRpcResponse = {
 };
 
 const DEFAULT_MCP_URL = "http://127.0.0.1:8080/mcp";
+const MCP_PROTOCOL_VERSION = "2024-11-05";
+const SESSION_HEADER = "mcp-session-id";
+const MCP_ACCEPT = "application/json, text/event-stream";
 
 export type MemoryDocument = { id: string; text: string };
 
@@ -39,12 +44,46 @@ export class SakMcpClient {
   readonly baseUrl: string;
   private readonly token?: string;
   private readonly fetchFn: FetchFn;
+  private readonly autoInitialize: boolean;
   private rpcId = 0;
+  private sessionId: string | null = null;
+  private initialized = false;
 
   constructor(baseUrl = DEFAULT_MCP_URL, options?: SakMcpClientOptions) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = options?.token;
     this.fetchFn = options?.fetch ?? fetch;
+    this.autoInitialize = options?.autoInitialize !== false;
+  }
+
+  /** Current Streamable HTTP session id after ``initialize`` (`sak329-a`). */
+  getSessionId(): string | null {
+    return this.sessionId;
+  }
+
+  /**
+   * MCP ``initialize`` + ``notifications/initialized``; capture ``mcp-session-id``
+   * from response headers or body (`sak329-a`).
+   */
+  async initialize(): Promise<unknown> {
+    const { result, sessionId } = await this.rpcRaw("initialize", {
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: "@swissarmynoife/sdk", version: "0.1.0" },
+    });
+    if (sessionId) {
+      this.sessionId = sessionId;
+    }
+    await this.postNotification("notifications/initialized");
+    this.initialized = true;
+    return result;
+  }
+
+  async ensureSession(): Promise<void> {
+    if (!this.autoInitialize || this.initialized) {
+      return;
+    }
+    await this.initialize();
   }
 
   async ping(): Promise<string> {
@@ -53,6 +92,7 @@ export class SakMcpClient {
   }
 
   async toolsList(): Promise<unknown> {
+    await this.ensureSession();
     return this.rpc("tools/list");
   }
 
@@ -65,12 +105,13 @@ export class SakMcpClient {
     const raw = unwrapMcpComputePayload(
       await this.toolsCall("compute_work", body as Record<string, unknown>),
     );
-    return SakClient.assertRawComputePost(raw, body);  // sak489-i
+    return SakClient.assertRawComputePost(raw, body); // sak489-i
   }
 
   /** MCP ``compute_work`` claim + shared empty-vs-miss normalize (`sak489-i`). */
   async claimWork(nodeId: string, bindingId: string): Promise<JsonValue> {
-    return SakClient.normalizeClaimWorkResponse(  // sak488-i / sak489-i / sak490-i
+    return SakClient.normalizeClaimWorkResponse(
+      // sak488-i / sak489-i / sak490-i
       await this.computeWork({
         binding_id: bindingId,
         action: "claim",
@@ -132,9 +173,7 @@ export class SakMcpClient {
     if (scopeKey !== undefined) {
       args.scope_key = scopeKey;
     }
-    return assertMemoryPeelOk(
-      await this.domainToolRaw("memory_index", args),
-    );
+    return assertMemoryPeelOk(await this.domainToolRaw("memory_index", args));
   }
 
   private async domainToolRaw(
@@ -147,21 +186,43 @@ export class SakMcpClient {
       : { result: raw as JsonValue };
   }
 
-  private async rpc(
-    method: string,
-    params: Record<string, unknown> = {},
-  ): Promise<unknown> {
-    this.rpcId += 1;
+  private baseHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      Accept: MCP_ACCEPT,
     };
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
     }
+    if (this.sessionId) {
+      headers[SESSION_HEADER] = this.sessionId;
+    }
+    return headers;
+  }
 
+  private async postNotification(method: string): Promise<void> {
     const res = await this.fetchFn(this.baseUrl, {
       method: "POST",
-      headers,
+      headers: this.baseHeaders(),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method,
+      }),
+    });
+    if (res.status !== 200 && res.status !== 202) {
+      const body = await res.text();
+      throw new Error(`${res.status}: ${body}`);
+    }
+  }
+
+  private async rpcRaw(
+    method: string,
+    params: Record<string, unknown> = {},
+  ): Promise<{ result: unknown; sessionId: string | null }> {
+    this.rpcId += 1;
+    const res = await this.fetchFn(this.baseUrl, {
+      method: "POST",
+      headers: this.baseHeaders(),
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: this.rpcId,
@@ -175,19 +236,58 @@ export class SakMcpClient {
       throw new Error(`${res.status}: ${body}`);
     }
 
-    const body = (await res.json()) as JsonRpcResponse;
+    const headerSid = res.headers.get(SESSION_HEADER);
+    const body = (await res.json()) as JsonRpcResponse & Record<string, unknown>;
     if (body.error) {
-      throw new Error(body.error.message ?? `MCP ${method} failed`);
+      throw new Error(
+        (body.error as { message?: string }).message ?? `MCP ${method} failed`,
+      );
     }
-    return body.result;
+    const fromBody = sessionIdFromBody(body);
+    return {
+      result: body.result,
+      sessionId: (headerSid && headerSid.trim()) || fromBody,
+    };
+  }
+
+  private async rpc(
+    method: string,
+    params: Record<string, unknown> = {},
+  ): Promise<unknown> {
+    const { result, sessionId } = await this.rpcRaw(method, params);
+    if (sessionId && !this.sessionId) {
+      this.sessionId = sessionId;
+    }
+    return result;
   }
 
   private async toolsCall(
     name: string,
     args: Record<string, unknown> = {},
   ): Promise<unknown> {
+    await this.ensureSession();
     return this.rpc("tools/call", { name, arguments: args });
   }
+}
+
+function sessionIdFromBody(body: Record<string, unknown>): string | null {
+  for (const key of ["sessionId", "session_id", "mcp-session-id"] as const) {
+    const val = body[key];
+    if (typeof val === "string" && val.trim()) {
+      return val.trim();
+    }
+  }
+  const result = body.result;
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    const r = result as Record<string, unknown>;
+    for (const key of ["sessionId", "session_id", "mcp-session-id"] as const) {
+      const val = r[key];
+      if (typeof val === "string" && val.trim()) {
+        return val.trim();
+      }
+    }
+  }
+  return null;
 }
 
 /** Unwrap MCP tool content + InvokeResp into HTTP-shaped compute JSON (`sak489-i`). */

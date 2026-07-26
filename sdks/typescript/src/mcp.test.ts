@@ -3,6 +3,105 @@ import test from "node:test";
 
 import { SakMcpClient } from "./mcp.js";
 
+/** Existing tool tests skip handshake noise (`autoInitialize: false`). */
+function toolClient(fetch: typeof globalThis.fetch, token?: string) {
+  return new SakMcpClient("http://127.0.0.1:8080/mcp", {
+    token,
+    fetch,
+    autoInitialize: false,
+  });
+}
+
+test("initialize captures mcp-session-id and sends initialized (sak329-a)", async () => {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const mockFetch: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), init });
+    const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+    if (body.method === "initialize") {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: { protocolVersion: "2024-11-05", capabilities: {} },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "mcp-session-id": "sess-abc",
+          },
+        },
+      );
+    }
+    if (body.method === "notifications/initialized") {
+      return new Response(null, { status: 202 });
+    }
+    if (body.method === "tools/call") {
+      const headers = init?.headers as Record<string, string>;
+      assert.equal(headers["mcp-session-id"], "sess-abc");
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          result: { content: [{ type: "text", text: "pong" }] },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    throw new Error(`unexpected method ${body.method}`);
+  };
+
+  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", { fetch: mockFetch });
+  await client.initialize();
+  assert.equal(client.getSessionId(), "sess-abc");
+  const out = await client.ping();
+  assert.equal(out, "pong");
+  assert.equal(calls.length, 3);
+  assert.equal(JSON.parse(String(calls[0]?.init?.body)).method, "initialize");
+  assert.equal(
+    JSON.parse(String(calls[1]?.init?.body)).method,
+    "notifications/initialized",
+  );
+  assert.equal(JSON.parse(String(calls[2]?.init?.body)).method, "tools/call");
+});
+
+test("ping auto-initializes once (sak329-a)", async () => {
+  let initCount = 0;
+  const mockFetch: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+    if (body.method === "initialize") {
+      initCount += 1;
+      return new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, result: {} }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "mcp-session-id": "s1",
+          },
+        },
+      );
+    }
+    if (body.method === "notifications/initialized") {
+      return new Response(null, { status: 202 });
+    }
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        result: { content: [{ type: "text", text: "pong" }] },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", { fetch: mockFetch });
+  await client.ping();
+  await client.ping();
+  assert.equal(initCount, 1);
+  assert.equal(client.getSessionId(), "s1");
+});
+
 test("ping posts tools/call and returns text content", async () => {
   const calls: { url: string; init?: RequestInit }[] = [];
   const mockFetch: typeof fetch = async (input, init) => {
@@ -17,10 +116,7 @@ test("ping posts tools/call and returns text content", async () => {
     );
   };
 
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", {
-    token: "tok",
-    fetch: mockFetch,
-  });
+  const client = toolClient(mockFetch, "tok");
   const out = await client.ping();
 
   assert.equal(out, "pong");
@@ -48,7 +144,7 @@ test("toolsList posts tools/list", async () => {
     );
   };
 
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", { fetch: mockFetch });
+  const client = toolClient(mockFetch);
   const out = await client.toolsList();
 
   assert.deepEqual(out, { tools: [{ name: "ping" }, { name: "catalog_list" }] });
@@ -71,7 +167,7 @@ test("catalogList posts tools/call catalog_list", async () => {
     );
   };
 
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", { fetch: mockFetch });
+  const client = toolClient(mockFetch);
   const out = await client.catalogList();
 
   assert.deepEqual(out, { offers: [{ id: "llm.chat" }] });
@@ -105,7 +201,7 @@ test("computeWork posts tools/call compute_work (sak489-i)", async () => {
     );
   };
 
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", { fetch: mockFetch });
+  const client = toolClient(mockFetch);
   const out = await client.computeWork({
     binding_id: "b1",
     action: "enqueue",
@@ -192,17 +288,16 @@ test("enqueueWork posts action enqueue (sak431-h)", async () => {
 });
 
 test("sak498-g mcp domain helpers raise on peel miss", async () => {
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", {
-    fetch: async () =>
-      new Response(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          result: { via: "broker_miss", feature: "sandbox_exec", error: "down" },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-  });
+  const client = toolClient(async () =>
+    new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        result: { via: "broker_miss", feature: "sandbox_exec", error: "down" },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
   await assert.rejects(() => client.sandboxExec(["echo"]), /broker_miss/);
 });
 
@@ -226,7 +321,7 @@ test("memoryIndex posts tools/call memory_index (sak499-i)", async () => {
     );
   };
 
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", { fetch: mockFetch });
+  const client = toolClient(mockFetch);
   const out = await client.memoryIndex("b-mem", [
     { id: "1", text: "alpha" },
     { id: "2", text: "beta" },
@@ -261,20 +356,19 @@ test("sak499-i memory peel envelope on SakMcpClient", () => {
 });
 
 test("sak499-i memoryIndex raises on peel miss", async () => {
-  const client = new SakMcpClient("http://127.0.0.1:8080/mcp", {
-    fetch: async () =>
-      new Response(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          result: {
-            code: "broker_memory_only",
-            error: "use SwissArmyNoife memory_index",
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-  });
+  const client = toolClient(async () =>
+    new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          code: "broker_memory_only",
+          error: "use SwissArmyNoife memory_index",
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
   await assert.rejects(
     () => client.memoryIndex("b1", [{ id: "1", text: "x" }]),
     /broker_miss/,
