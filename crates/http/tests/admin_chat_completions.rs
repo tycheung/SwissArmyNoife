@@ -78,6 +78,12 @@ async fn chat_completions_stream_returns_sse() {
         ctype.starts_with("text/event-stream"),
         "content-type={ctype}"
     );
+    let cache = stream
+        .headers()
+        .get("cache-control")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert_eq!(cache, "no-cache");
     let body = axum::body::to_bytes(stream.into_body(), 64 * 1024)
         .await
         .expect("bytes");
