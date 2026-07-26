@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwissArmyNoife.Sdk", "SwissArmyNoife.Sdk\SwissArmyNoife.Sdk.csproj", "{79375A80-4290-4426-BF31-F8EE2125EA69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwissArmyNoife.Sdk.Tests", "SwissArmyNoife.Sdk.Tests\SwissArmyNoife.Sdk.Tests.csproj", "{0F0E5247-DCD2-4BDC-AA50-E93D19C08218}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{79375A80-4290-4426-BF31-F8EE2125EA69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79375A80-4290-4426-BF31-F8EE2125EA69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79375A80-4290-4426-BF31-F8EE2125EA69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79375A80-4290-4426-BF31-F8EE2125EA69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F0E5247-DCD2-4BDC-AA50-E93D19C08218}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F0E5247-DCD2-4BDC-AA50-E93D19C08218}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F0E5247-DCD2-4BDC-AA50-E93D19C08218}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F0E5247-DCD2-4BDC-AA50-E93D19C08218}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

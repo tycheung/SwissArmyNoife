@@ -35,3 +35,7 @@ dist/
 # Java SDK
 sdks/java/target/
 
+
+# C# SDK
+sdks/csharp/**/bin/
+sdks/csharp/**/obj/
