@@ -2,6 +2,10 @@
 
 HTTP admin client (`SakClient`) and Streamable HTTP MCP stub (`SakMcpClient`) for SwissArmyNoife.
 
+Optional **OpenAI-shaped** chat facade (`POST /v1/chat/completions`): see
+[`examples/openai-chat-facade.ts`](examples/openai-chat-facade.ts) and
+[`docs/openai-tools-facade.md`](../../docs/openai-tools-facade.md) (`sak540-d`).
+
 ## Install / build
 
 ```bash
