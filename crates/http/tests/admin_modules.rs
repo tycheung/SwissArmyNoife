@@ -158,7 +158,9 @@ async fn compute_work_and_nodes_post_roundtrip() {
                 .method("POST")
                 .uri("/v1/sak/compute/nodes")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"action":"register","label":"http-test","caps":["t"]}"#))
+                .body(Body::from(
+                    r#"{"action":"register","label":"http-test","caps":["t"]}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -170,9 +172,7 @@ async fn compute_work_and_nodes_post_roundtrip() {
     let reg: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     let node_id = reg["node"]["id"].as_str().expect("node.id");
 
-    let claim_body = format!(
-        r#"{{"action":"claim","node_id":"{node_id}"}}"#
-    );
+    let claim_body = format!(r#"{{"action":"claim","node_id":"{node_id}"}}"#);
     let claim = app
         .clone()
         .oneshot(
@@ -214,9 +214,8 @@ async fn compute_work_and_nodes_post_roundtrip() {
     let done: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert!(done.get("work").is_some(), "{done}");
 
-    let list_body = format!(
-        r#"{{"action":"list","run_id":"r-filter","stage_name":"echo","limit":50}}"#
-    );
+    let list_body =
+        format!(r#"{{"action":"list","run_id":"r-filter","stage_name":"echo","limit":50}}"#);
     // enqueue a second unit with run_id in payload for list filter
     let _ = app
         .clone()
@@ -249,7 +248,10 @@ async fn compute_work_and_nodes_post_roundtrip() {
         .await
         .unwrap();
     let list_json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert!(list_json["work"].as_array().unwrap().len() >= 1, "{list_json}");
+    assert!(
+        list_json["work"].as_array().unwrap().len() >= 1,
+        "{list_json}"
+    );
 
     let heartbeat_body = format!(r#"{{"action":"heartbeat","node_id":"{node_id}"}}"#);
     let beat = app
@@ -307,7 +309,9 @@ async fn compute_work_enqueue_claim_requeue_roundtrip() {
                 .method("POST")
                 .uri("/v1/sak/compute/nodes")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"action":"register","label":"requeue-test","caps":["t"]}"#))
+                .body(Body::from(
+                    r#"{"action":"register","label":"requeue-test","caps":["t"]}"#,
+                ))
                 .unwrap(),
         )
         .await

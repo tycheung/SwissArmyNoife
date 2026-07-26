@@ -41,7 +41,6 @@ impl SqliteNodeRegistry {
     pub fn path(&self) -> &Path {
         &self.path
     }
-
 }
 
 impl NodeStore for SqliteNodeRegistry {
@@ -135,8 +134,7 @@ impl NodeStore for SqliteNodeRegistry {
         let now = unix_now();
         let mut out = Vec::new();
         for row in rows {
-            let (id, label, caps_json, hb, session) =
-                row.map_err(|_| ErrorCode::SchemaInvalid)?;
+            let (id, label, caps_json, hb, session) = row.map_err(|_| ErrorCode::SchemaInvalid)?;
             let rec = row_to_record(id, label, caps_json, hb, session)?;
             if let Some(d) = stale_after {
                 if now.saturating_sub(rec.last_heartbeat_unix) > d.as_secs() {
@@ -164,15 +162,7 @@ fn load_node(conn: &Connection, id: NodeId) -> Result<NodeRecord, ErrorCode> {
             "SELECT id, label, caps_json, last_heartbeat_unix, session_id
              FROM compute_nodes WHERE id = ?1",
             params![id.to_string()],
-            |r| {
-                Ok((
-                    r.get(0)?,
-                    r.get(1)?,
-                    r.get(2)?,
-                    r.get(3)?,
-                    r.get(4)?,
-                ))
-            },
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .map_err(|_| ErrorCode::OfferNotFound)?;
     row_to_record(row.0, row.1, row.2, row.3, row.4)

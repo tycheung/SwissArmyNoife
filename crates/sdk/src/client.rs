@@ -1057,7 +1057,9 @@ mod tests {
         assert!(assert_research_ok(&json!({"body": "html"})).is_ok());
         assert!(assert_egress_ok(&json!({"allowed": true})).is_ok());
         assert!(assert_llm_ok(&json!({"content": "hi"})).is_ok());
-        assert!(assert_sandbox_ok(&json!({"via": "broker_miss", "feature": "sandbox_exec"})).is_err());
+        assert!(
+            assert_sandbox_ok(&json!({"via": "broker_miss", "feature": "sandbox_exec"})).is_err()
+        );
         assert!(assert_llm_ok(&json!({"code": "broker_llm_unavailable"})).is_err());
     }
 

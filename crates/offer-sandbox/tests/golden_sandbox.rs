@@ -73,9 +73,11 @@ fn outside_jail_absolute_cwd() -> PathBuf {
 
 #[test]
 fn absolute_cwd_escape_fixture_expectation_string() {
-    let fix =
-        load_nimbus_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/absolute-cwd-escape.json")
-            .expect("fixture");
+    let fix = load_nimbus_fixture(
+        env!("CARGO_MANIFEST_DIR"),
+        "sandbox/absolute-cwd-escape.json",
+    )
+    .expect("fixture");
     assert_eq!(fix["schema"], "sak.fixture.nimbusware/v0");
     let needle = fix["expect"]["message_contains"]
         .as_str()
