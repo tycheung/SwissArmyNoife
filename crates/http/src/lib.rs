@@ -2,6 +2,7 @@
 
 mod auth;
 mod routes;
+mod sse;
 mod state;
 
 use std::sync::Arc;
@@ -16,6 +17,7 @@ pub use routes::{
     audit_router, bindings_router, capacity_router, chat_completions_router, compute_router,
     connections_router, health_router, metrics_router, modules_router,
 };
+pub use sse::{encode_completion_stream, encode_done, encode_error, encode_text_delta};
 pub use state::AppState;
 
 /// Compose the admin app router with empty in-memory state.
