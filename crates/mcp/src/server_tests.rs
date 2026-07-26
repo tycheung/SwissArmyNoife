@@ -60,7 +60,7 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v14"));
+    assert!(text.contains("v15"));
 }
 
 #[tokio::test]
@@ -74,6 +74,7 @@ async fn catalog_list_includes_seed_offers() {
     assert!(listed.contains("memory.embed"), "sak524-a: {listed}");
     assert!(listed.contains("memory.scope"), "sak524-c: {listed}");
     assert!(listed.contains("tools.registry"), "sak525-b: {listed}");
+    assert!(listed.contains("tools.loop"), "sak525-d: {listed}");
 }
 
 #[tokio::test]
@@ -285,6 +286,98 @@ async fn bind_invoke_tools_registry_list() {
             panic!("unexpected error {code}: {message}")
         }
     }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
+async fn bind_invoke_tools_loop_ok_deny_budget() {
+    let (server, _tmp) = test_server();
+    let mut args = sample_bind("tools.loop");
+    args.policy = json!({
+        "tools": { "allow": ["tools.echo"], "max_steps": 1 }
+    });
+    let bound = server.bind(Parameters(args)).await.expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+
+    let ok_raw = server
+        .tools_loop(Parameters(crate::tool_args::ToolsLoopArgs {
+            binding_id: binding_id.clone(),
+            step_index: Some(0),
+            step: crate::tool_args::ToolsLoopStepArg {
+                text: None,
+                tool_calls: vec![crate::tool_args::ToolsLoopCallArg {
+                    id: "1".into(),
+                    tool: "tools.echo".into(),
+                    args: json!({ "message": "hi" }),
+                }],
+            },
+        }))
+        .await
+        .expect("tools_loop ok");
+    let ok: InvokeResp = serde_json::from_str(&ok_raw).expect("InvokeResp");
+    match ok {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["results"][0]["ok"], true);
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
+    }
+
+    let deny_raw = server
+        .tools_loop(Parameters(crate::tool_args::ToolsLoopArgs {
+            binding_id: binding_id.clone(),
+            step_index: Some(0),
+            step: crate::tool_args::ToolsLoopStepArg {
+                text: None,
+                tool_calls: vec![crate::tool_args::ToolsLoopCallArg {
+                    id: "2".into(),
+                    tool: "tools.ping".into(),
+                    args: json!({}),
+                }],
+            },
+        }))
+        .await
+        .expect("tools_loop deny");
+    let deny: InvokeResp = serde_json::from_str(&deny_raw).expect("InvokeResp");
+    match deny {
+        InvokeResp::Error {
+            code: types::ErrorCode::PolicyDenied,
+            ..
+        } => {}
+        other => panic!("expected policy.denied, got {other:?}"),
+    }
+
+    let budget_raw = server
+        .tools_loop(Parameters(crate::tool_args::ToolsLoopArgs {
+            binding_id: binding_id.clone(),
+            step_index: Some(1),
+            step: crate::tool_args::ToolsLoopStepArg {
+                text: None,
+                tool_calls: vec![crate::tool_args::ToolsLoopCallArg {
+                    id: "3".into(),
+                    tool: "tools.echo".into(),
+                    args: json!({ "message": "x" }),
+                }],
+            },
+        }))
+        .await
+        .expect("tools_loop budget");
+    let budget: InvokeResp = serde_json::from_str(&budget_raw).expect("InvokeResp");
+    match budget {
+        InvokeResp::Error {
+            code: types::ErrorCode::BudgetExhausted,
+            ..
+        } => {}
+        other => panic!("expected budget.exhausted, got {other:?}"),
+    }
+
     server
         .unbind(Parameters(UnbindArgs { binding_id }))
         .await

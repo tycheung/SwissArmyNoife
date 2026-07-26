@@ -16,7 +16,7 @@ use offer_memory::{
 };
 use offer_research::{ResearchBriefOffer, ResearchFetchOffer};
 use offer_sandbox::{NoneBackend, SandboxExecOffer, StubBackend};
-use offer_tools::ToolsRegistryOffer;
+use offer_tools::{ToolsLoopOffer, ToolsRegistryOffer};
 use provider_anthropic::AnthropicProvider;
 use provider_core::{ChatRequest, ChatResponse, ProviderError};
 use provider_ollama::OllamaProvider;
@@ -237,6 +237,7 @@ pub struct LiveOffers {
     pub memory_embed: MemoryEmbedOffer<EchoChatProvider>,
     pub memory_scope: MemoryScopeOffer,
     pub tools_registry: ToolsRegistryOffer,
+    pub tools_loop: ToolsLoopOffer,
     pub research_fetch: ResearchFetchOffer<offer_egress::ReqwestGet>,
     pub research_brief: ResearchBriefOffer,
     pub capacity_probe: CapacityProbeOffer,
@@ -290,6 +291,7 @@ impl LiveOffers {
             memory_embed: MemoryEmbedOffer::new(EchoChatProvider)?,
             memory_scope: MemoryScopeOffer::new()?,
             tools_registry: ToolsRegistryOffer::with_defaults()?,
+            tools_loop: ToolsLoopOffer::with_defaults()?,
             research_fetch: ResearchFetchOffer::new()?,
             research_brief: ResearchBriefOffer::new()?,
             capacity_probe: CapacityProbeOffer::new(Arc::clone(&probe))?,
@@ -316,6 +318,7 @@ impl LiveOffers {
         catalog.register_offer(&self.memory_embed);
         catalog.register_offer(&self.memory_scope);
         catalog.register_offer(&self.tools_registry);
+        catalog.register_offer(&self.tools_loop);
         catalog.register_offer(&self.research_fetch);
         catalog.register_offer(&self.research_brief);
         catalog.register_offer(&self.capacity_probe);

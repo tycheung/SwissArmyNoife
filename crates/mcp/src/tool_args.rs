@@ -233,6 +233,30 @@ pub(crate) struct ToolsRegistryArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct ToolsLoopCallArg {
+    pub id: String,
+    pub tool: String,
+    pub args: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct ToolsLoopStepArg {
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub tool_calls: Vec<ToolsLoopCallArg>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct ToolsLoopArgs {
+    /// Binding id from `bind` for `tools.loop`.
+    pub binding_id: String,
+    #[serde(default)]
+    pub step_index: Option<u32>,
+    pub step: ToolsLoopStepArg,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,

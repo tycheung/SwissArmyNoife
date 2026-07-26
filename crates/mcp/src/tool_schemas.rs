@@ -9,7 +9,7 @@ use crate::tool_args::{
     FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
     MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs,
     OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
-    SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsRegistryArgs, UnbindArgs,
+    SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -40,6 +40,7 @@ pub fn tool_input_schemas() -> Value {
     insert::<MemoryScopeArgs>(&mut m, "memory_scope");
     insert::<MemorySearchArgs>(&mut m, "memory_search");
     insert::<ToolsRegistryArgs>(&mut m, "tools_registry");
+    insert::<ToolsLoopArgs>(&mut m, "tools_loop");
     insert::<ResearchFetchArgs>(&mut m, "research_fetch");
     insert::<ResearchBriefArgs>(&mut m, "research_brief");
     insert::<ModuleInvokeArgs>(&mut m, "module_invoke");
@@ -97,6 +98,10 @@ mod tests {
         assert!(
             doc["tools"]["tools_registry"].is_object(),
             "sak525-b tools_registry schema"
+        );
+        assert!(
+            doc["tools"]["tools_loop"].is_object(),
+            "sak525-d tools_loop schema"
         );
     }
 }

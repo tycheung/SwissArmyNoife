@@ -39,6 +39,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "memory_scope",
     "memory_search",
     "tools_registry",
+    "tools_loop",
     "research_fetch",
     "research_brief",
     "module_list",
@@ -446,6 +447,34 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "tools",
+    );
+
+    let tools_loop_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({"offer_id": "tools.loop", "ttl_secs": 300}),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "tools_loop",
+            json!({
+                "binding_id": tools_loop_id,
+                "step_index": 0,
+                "step": {
+                    "tool_calls": [{
+                        "id": "1",
+                        "tool": "tools.echo",
+                        "args": { "message": "matrix" }
+                    }]
+                }
+            }),
+        )
+        .await?,
+        "results",
     );
 
     let research_fetch_id = binding_id(

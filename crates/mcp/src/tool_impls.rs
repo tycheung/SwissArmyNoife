@@ -5,7 +5,7 @@ use crate::tool_args::{
     CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
     EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
     MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs,
-    ResearchFetchArgs, ShellExecArgs, ToolsRegistryArgs,
+    ResearchFetchArgs, ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
 use crate::workspace_tools::{fs_err, mode_label, parse_read_mode, shell_err};
@@ -137,6 +137,38 @@ impl McpServer {
             "id": id,
         });
         let claim = OfferId::new("tools.registry").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn tools_loop_inner(&self, args: ToolsLoopArgs) -> Result<String, McpError> {
+        let ToolsLoopArgs {
+            binding_id,
+            step_index,
+            step,
+        } = args;
+        let binding_id = parse_binding_id(&binding_id)?;
+        let tool_calls: Vec<_> = step
+            .tool_calls
+            .into_iter()
+            .map(|c| {
+                json!({
+                    "id": c.id,
+                    "tool": c.tool,
+                    "args": c.args,
+                })
+            })
+            .collect();
+        let invoke_args = json!({
+            "step_index": step_index.unwrap_or(0),
+            "step": {
+                "text": step.text,
+                "tool_calls": tool_calls,
+            }
+        });
+        let claim = OfferId::new("tools.loop").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;
