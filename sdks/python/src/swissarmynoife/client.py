@@ -55,6 +55,10 @@ class SakClient:
             feature="capacity",
         )
 
+    def chat_completions(self, body: dict[str, Any]) -> Any:
+        """POST /v1/chat/completions OpenAI-shaped facade (`sak547-a`)."""
+        return self._post_json("/v1/chat/completions", body)
+
     def list_work(self) -> Any:
         return self.assert_list_ok(
             self._get_json("/v1/sak/compute/work"),
