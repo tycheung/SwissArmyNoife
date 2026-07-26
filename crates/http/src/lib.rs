@@ -1,10 +1,14 @@
 //! `SwissArmyNoife` local HTTP admin surface (`sak363`) — list installed modules only.
 
+mod auth;
 mod routes;
 mod state;
 
 use axum::Router;
 
+pub use auth::{
+    auth_middleware, bearer_authorized, token_from_env, HTTP_ALLOW_INSECURE_ENV, HTTP_TOKEN_ENV,
+};
 pub use routes::{
     audit_router, bindings_router, capacity_router, chat_completions_router, compute_router,
     connections_router, health_router, metrics_router, modules_router,
