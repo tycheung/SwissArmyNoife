@@ -44,13 +44,12 @@ async fn chat_completions_maps_to_llm_chat() {
 }
 
 #[tokio::test]
-async fn chat_completions_rejects_stream_and_missing_binding() {
+async fn chat_completions_stream_returns_sse() {
     let state = AppState::new();
     let binding_id = state.bind_llm_chat_for_test(300);
     let app = app_with_state(state);
 
     let stream = app
-        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
@@ -59,8 +58,9 @@ async fn chat_completions_rejects_stream_and_missing_binding() {
                 .body(Body::from(
                     json!({
                         "binding_id": binding_id.to_string(),
+                        "model": "echo",
                         "stream": true,
-                        "messages": [{ "role": "user", "content": "x" }]
+                        "messages": [{ "role": "user", "content": "ping" }]
                     })
                     .to_string(),
                 ))
@@ -68,13 +68,28 @@ async fn chat_completions_rejects_stream_and_missing_binding() {
         )
         .await
         .expect("stream");
-    assert_eq!(stream.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(stream.status(), StatusCode::OK);
+    let ctype = stream
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(
+        ctype.starts_with("text/event-stream"),
+        "content-type={ctype}"
+    );
     let body = axum::body::to_bytes(stream.into_body(), 64 * 1024)
         .await
         .expect("bytes");
-    let v: Value = serde_json::from_slice(&body).expect("json");
-    assert_eq!(v["error"]["code"], "stream_not_supported");
+    let text = String::from_utf8(body.to_vec()).expect("utf8");
+    assert!(text.contains("chat.completion.chunk"), "{text}");
+    assert!(text.contains("ping"), "{text}");
+    assert!(text.contains("data: [DONE]"), "{text}");
+}
 
+#[tokio::test]
+async fn chat_completions_requires_binding() {
+    let app = app_with_state(AppState::new());
     let missing = app
         .oneshot(
             Request::builder()

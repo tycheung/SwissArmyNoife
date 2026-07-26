@@ -1,8 +1,10 @@
-//! `POST /v1/chat/completions` — OpenAI-shaped facade (`sak540-b`/`sak540-c`).
+//! `POST /v1/chat/completions` — OpenAI-shaped facade (`sak540` / `sak542` streaming).
 
 use axum::{
+    body::Body,
     extract::State,
     http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     routing::post,
     Json, Router,
 };
@@ -11,6 +13,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp, OfferId};
 
+use crate::sse::{encode_completion_stream, encode_done, encode_error};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -182,6 +185,15 @@ fn completion_ok(
     }))
 }
 
+fn sse_response(body: String) -> Response {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", "text/event-stream")
+        .header("cache-control", "no-cache")
+        .body(Body::from(body))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
 fn record_and_count(
     state: &AppState,
     binding_id: BindingId,
@@ -256,11 +268,11 @@ async fn run_tools_loop(
     }
 }
 
-async fn run_llm_chat(
+async fn invoke_llm(
     state: &AppState,
     headers: &HeaderMap,
     body: &ChatCompletionsRequest,
-) -> Result<Json<Value>, ErrResp> {
+) -> Result<(BindingId, Value, InvokeResp), ErrResp> {
     let binding_id = parse_llm_binding_id(body, headers)?;
     ensure_offer_binding(state, binding_id, "llm.chat")?;
     let messages: Vec<Value> = body
@@ -284,6 +296,15 @@ async fn run_llm_chat(
         })
         .await;
     record_and_count(state, binding_id, claim_llm(), &invoke_args, &resp);
+    Ok((binding_id, invoke_args, resp))
+}
+
+async fn run_llm_chat(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &ChatCompletionsRequest,
+) -> Result<Json<Value>, ErrResp> {
+    let (_binding, _args, resp) = invoke_llm(state, headers, body).await?;
     match resp {
         InvokeResp::Ok { result, invoke_id } => {
             let text = result
@@ -299,18 +320,37 @@ async fn run_llm_chat(
     }
 }
 
+async fn run_llm_chat_stream(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &ChatCompletionsRequest,
+) -> Result<Response, ErrResp> {
+    let (_binding, _args, resp) = invoke_llm(state, headers, body).await?;
+    let model = body.model.clone().unwrap_or_else(|| "sak".into());
+    match resp {
+        InvokeResp::Ok { result, invoke_id } => {
+            let text = result
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            let id = format!("chatcmpl-{invoke_id}");
+            Ok(sse_response(encode_completion_stream(&id, &model, &text)))
+        }
+        InvokeResp::Error { code, message, .. } => {
+            // sak542-c: offer errors on the stream as SSE data (no secrets).
+            let mut body = encode_error(code.as_str(), &message);
+            body.push_str(&encode_done());
+            Ok(sse_response(body))
+        }
+    }
+}
+
 async fn chat_completions(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<ChatCompletionsRequest>,
-) -> Result<Json<Value>, ErrResp> {
-    if body.stream == Some(true) {
-        return Err(openai_err(
-            StatusCode::BAD_REQUEST,
-            "stream_not_supported",
-            "stream=true is not supported in v0",
-        ));
-    }
+) -> Result<Response, ErrResp> {
     if body.messages.is_empty() {
         return Err(openai_err(
             StatusCode::BAD_REQUEST,
@@ -320,10 +360,23 @@ async fn chat_completions(
     }
     if let Some(last) = body.messages.last() {
         if !last.tool_calls.is_empty() {
-            return run_tools_loop(&state, &headers, &body, &last.tool_calls).await;
+            // sak543-a: tools path does not stream in v0.
+            if body.stream == Some(true) {
+                return Err(openai_err(
+                    StatusCode::BAD_REQUEST,
+                    "stream_not_supported",
+                    "stream=true is not supported for tool_calls",
+                ));
+            }
+            return Ok(run_tools_loop(&state, &headers, &body, &last.tool_calls)
+                .await?
+                .into_response());
         }
     }
-    run_llm_chat(&state, &headers, &body).await
+    if body.stream == Some(true) {
+        return run_llm_chat_stream(&state, &headers, &body).await;
+    }
+    Ok(run_llm_chat(&state, &headers, &body).await?.into_response())
 }
 
 /// OpenAI-compatible chat completions router.
