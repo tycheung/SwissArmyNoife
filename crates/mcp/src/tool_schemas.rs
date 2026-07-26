@@ -7,9 +7,9 @@ use crate::tool_args::{
     BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, CatalogGetArgs,
     ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs,
     FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs,
-    MemoryIndexArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs,
-    ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SessionBindArgs, ShellExecArgs,
-    TelemetryArgs, UnbindArgs,
+    MemoryEmbedArgs, MemoryIndexArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs,
+    ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SessionBindArgs,
+    ShellExecArgs, TelemetryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -36,6 +36,7 @@ pub fn tool_input_schemas() -> Value {
     insert::<EgressCheckArgs>(&mut m, "egress_check");
     insert::<EgressFetchArgs>(&mut m, "egress_fetch");
     insert::<MemoryIndexArgs>(&mut m, "memory_index");
+    insert::<MemoryEmbedArgs>(&mut m, "memory_embed");
     insert::<MemorySearchArgs>(&mut m, "memory_search");
     insert::<ResearchFetchArgs>(&mut m, "research_fetch");
     insert::<ResearchBriefArgs>(&mut m, "research_brief");
@@ -82,6 +83,10 @@ mod tests {
         assert!(
             doc["tools"]["llm_embed"].is_object(),
             "sak523-b llm_embed schema"
+        );
+        assert!(
+            doc["tools"]["memory_embed"].is_object(),
+            "sak524-a memory_embed schema"
         );
     }
 }

@@ -4,7 +4,8 @@ use crate::server::McpServer;
 use crate::tool_args::{
     CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
     EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
-    MemoryIndexArgs, MemorySearchArgs, ResearchBriefArgs, ResearchFetchArgs, ShellExecArgs,
+    MemoryEmbedArgs, MemoryIndexArgs, MemorySearchArgs, ResearchBriefArgs, ResearchFetchArgs,
+    ShellExecArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
 use crate::workspace_tools::{fs_err, mode_label, parse_read_mode, shell_err};
@@ -80,6 +81,24 @@ impl McpServer {
         let claim = OfferId::new("network.egress.fetch").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, json!({ "url": url }), Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn memory_embed_inner(
+        &self,
+        args: MemoryEmbedArgs,
+    ) -> Result<String, McpError> {
+        let MemoryEmbedArgs {
+            binding_id,
+            inputs,
+            model,
+        } = args;
+        let binding_id = parse_binding_id(&binding_id)?;
+        let invoke_args = json!({ "inputs": inputs, "model": model });
+        let claim = OfferId::new("memory.embed").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;
         serialize_resp(&resp)
     }

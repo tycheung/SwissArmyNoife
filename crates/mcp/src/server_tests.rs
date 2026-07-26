@@ -60,7 +60,7 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v10"));
+    assert!(text.contains("v12"));
 }
 
 #[tokio::test]
@@ -71,6 +71,7 @@ async fn catalog_list_includes_seed_offers() {
     assert!(listed.contains("llm.chat"));
     assert!(listed.contains("llm.embed"), "sak523-a: {listed}");
     assert!(listed.contains("llm.resolve"), "sak523-c: {listed}");
+    assert!(listed.contains("memory.embed"), "sak524-a: {listed}");
 }
 
 #[tokio::test]
@@ -153,6 +154,40 @@ async fn bind_invoke_llm_embed_echo_backend() {
         }))
         .await
         .expect("llm_embed");
+    let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
+    match resp {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["vectors"][0][0], 2.0);
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
+    }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
+async fn bind_invoke_memory_embed_echo_backend() {
+    let (server, _tmp) = test_server();
+    let bound = server
+        .bind(Parameters(sample_bind("memory.embed")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let raw = server
+        .memory_embed(Parameters(crate::tool_args::MemoryEmbedArgs {
+            binding_id: binding_id.clone(),
+            inputs: vec!["ab".into()],
+            model: None,
+        }))
+        .await
+        .expect("memory_embed");
     let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
     match resp {
         InvokeResp::Ok { result, .. } => {

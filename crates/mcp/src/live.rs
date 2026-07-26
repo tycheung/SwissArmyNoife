@@ -11,7 +11,7 @@ use offer_llm::{
     ChatProviders, EchoChatProvider, LlmChatOffer, LlmEmbedOffer, LlmOllamaManageOffer,
     LlmPreflightOffer, LlmResolveOffer, LlmTelemetryOffer,
 };
-use offer_memory::{MemoryIndexOffer, MemoryPlane, MemorySearchOffer};
+use offer_memory::{MemoryEmbedOffer, MemoryIndexOffer, MemoryPlane, MemorySearchOffer};
 use offer_research::{ResearchBriefOffer, ResearchFetchOffer};
 use offer_sandbox::{NoneBackend, SandboxExecOffer, StubBackend};
 use provider_anthropic::AnthropicProvider;
@@ -231,6 +231,7 @@ pub struct LiveOffers {
     pub egress_fetch: EgressFetchOffer<offer_egress::ReqwestGet>,
     pub memory_index: MemoryIndexOffer,
     pub memory_search: MemorySearchOffer,
+    pub memory_embed: MemoryEmbedOffer<EchoChatProvider>,
     pub research_fetch: ResearchFetchOffer<offer_egress::ReqwestGet>,
     pub research_brief: ResearchBriefOffer,
     pub capacity_probe: CapacityProbeOffer,
@@ -281,6 +282,7 @@ impl LiveOffers {
             egress_fetch: EgressFetchOffer::new()?,
             memory_index: MemoryIndexOffer::new(Arc::clone(&plane))?,
             memory_search: MemorySearchOffer::new(plane)?,
+            memory_embed: MemoryEmbedOffer::new(EchoChatProvider)?,
             research_fetch: ResearchFetchOffer::new()?,
             research_brief: ResearchBriefOffer::new()?,
             capacity_probe: CapacityProbeOffer::new(Arc::clone(&probe))?,
@@ -304,6 +306,7 @@ impl LiveOffers {
         catalog.register_offer(&self.egress_fetch);
         catalog.register_offer(&self.memory_index);
         catalog.register_offer(&self.memory_search);
+        catalog.register_offer(&self.memory_embed);
         catalog.register_offer(&self.research_fetch);
         catalog.register_offer(&self.research_brief);
         catalog.register_offer(&self.capacity_probe);

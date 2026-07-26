@@ -35,6 +35,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "egress_check",
     "egress_fetch",
     "memory_index",
+    "memory_embed",
     "memory_search",
     "research_fetch",
     "research_brief",
@@ -380,6 +381,24 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "status",
+    );
+
+    let mem_embed_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({"offer_id": "memory.embed", "ttl_secs": 300}),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "memory_embed",
+            json!({ "binding_id": mem_embed_id, "inputs": ["ab"] }),
+        )
+        .await?,
+        "vectors",
     );
 
     let research_fetch_id = binding_id(

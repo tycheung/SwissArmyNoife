@@ -199,6 +199,15 @@ pub(crate) struct MemoryDocArg {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct MemoryEmbedArgs {
+    /// Binding id from `bind` for `memory.embed`.
+    pub binding_id: String,
+    pub inputs: Vec<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,
