@@ -1113,6 +1113,8 @@ dependencies = [
  "offer-capacity",
  "offer-compute",
  "persist-postgres",
+ "persist-sqlite",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
@@ -1122,6 +1124,7 @@ dependencies = [
  "tracing-subscriber",
  "types",
  "uuid",
+ "vault",
 ]
 
 [[package]]
@@ -1560,6 +1563,7 @@ dependencies = [
  "offer-research",
  "offer-sandbox",
  "offer-tools",
+ "persist-sqlite",
  "provider-anthropic",
  "provider-core",
  "provider-ollama",
@@ -1575,6 +1579,7 @@ dependencies = [
  "tracing-subscriber",
  "types",
  "uuid",
+ "vault",
 ]
 
 [[package]]
@@ -1880,6 +1885,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.19",
+ "tokio",
  "types",
 ]
 
@@ -4291,6 +4297,7 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "toml",
 ]
 

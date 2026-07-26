@@ -54,15 +54,15 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
-        // Dry-run stub walk until full schemars codegen (`sak111-h` / `sak111-i`).
+        // Schemars emit via `cli schema tools` (`sak530-a`).
         Some("schema") => match args.next().as_deref() {
             Some("export") => {
                 let check = args.next().as_deref() == Some("--check");
                 if check {
-                    match schema_export::check_stubs() {
+                    match schema_export::check_schemars() {
                         Ok(()) => {
                             println!(
-                                "schema export --check: OK ({} tool stubs; full codegen deferred)",
+                                "schema export --check: OK ({} canonical tools; schemars)",
                                 schema_export::CANONICAL_TOOL_NAMES.len()
                             );
                             ExitCode::SUCCESS
@@ -73,8 +73,16 @@ fn main() -> ExitCode {
                         }
                     }
                 } else {
-                    print!("{}", schema_export::emit_stubs_document());
-                    ExitCode::SUCCESS
+                    match schema_export::emit_document() {
+                        Ok(doc) => {
+                            print!("{doc}");
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("schema export: FAILED — {err}");
+                            ExitCode::from(1)
+                        }
+                    }
                 }
             }
             other => {

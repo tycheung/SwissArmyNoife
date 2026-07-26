@@ -1,11 +1,10 @@
-//! Schema export dry-run (`sak111-h`) — stub JSON Schema walk until schemars codegen.
+//! Schema export via schemars (`sak530-a`) — emit MCP tool input schemas.
 //!
-//! Full `types` → JSON Schema codegen remains deferred (`docs/mcp-schema-codegen.md`).
-//! This module walks the canonical MCP tool name list and emits / checks stub schemas
-//! so CI can exercise the pipeline without breaking hand drift tests.
+//! Delegates to `cargo run -p cli -- schema tools` (same document as
+//! `mcp::tool_input_schemas()`). Stub dry-run (`sak111-i`) is retired.
 
-use std::collections::BTreeMap;
-use std::fmt::Write as _;
+use serde_json::Value;
+use std::process::Command;
 
 /// Canonical tool names aligned with `mcp` schema dump drift gate (`sak111-b`).
 pub const CANONICAL_TOOL_NAMES: &[&str] = &[
@@ -29,68 +28,62 @@ pub const CANONICAL_TOOL_NAMES: &[&str] = &[
     "module_invoke",
 ];
 
-/// Minimal JSON Schema stub for a tool input object.
-#[must_use]
-pub fn stub_schema_for(tool: &str) -> String {
-    format!(
-        r#"{{"type":"object","properties":{{}},"additionalProperties":false,"x-sak-codegen":"stub","x-sak-tool":"{tool}"}}"#
-    )
-}
-
-/// Build tool → stub schema map (sorted).
-#[must_use]
-pub fn stub_schema_map() -> BTreeMap<&'static str, String> {
-    CANONICAL_TOOL_NAMES
-        .iter()
-        .map(|name| (*name, stub_schema_for(name)))
-        .collect()
-}
-
-/// Validate stub map: every canonical name present, stub parses as object-ish JSON.
-pub fn check_stubs() -> Result<(), String> {
-    let map = stub_schema_map();
-    if map.len() != CANONICAL_TOOL_NAMES.len() {
+/// Emit the live schemars tool-input document (pretty JSON).
+///
+/// # Errors
+/// When `cli` schema tools fails to spawn, exits non-zero, or returns invalid UTF-8.
+pub fn emit_document() -> Result<String, String> {
+    let output = Command::new("cargo")
+        .args(["run", "-q", "-p", "cli", "--", "schema", "tools"])
+        .output()
+        .map_err(|e| format!("spawn cargo run -p cli: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!(
-            "stub count {} != canonical {}",
-            map.len(),
-            CANONICAL_TOOL_NAMES.len()
+            "cli schema tools failed (status {:?}): {stderr}",
+            output.status.code()
         ));
     }
-    for name in CANONICAL_TOOL_NAMES {
-        let Some(stub) = map.get(name) else {
-            return Err(format!("missing stub for {name}"));
-        };
-        if !stub.contains("\"type\":\"object\"") {
-            return Err(format!("{name}: stub missing type=object"));
-        }
-        if !stub.contains("\"x-sak-codegen\":\"stub\"") {
-            return Err(format!("{name}: stub missing x-sak-codegen"));
-        }
-        if !stub.contains(&format!("\"x-sak-tool\":\"{name}\"")) {
-            return Err(format!("{name}: stub missing x-sak-tool"));
-        }
-    }
-    Ok(())
+    String::from_utf8(output.stdout).map_err(|e| format!("schema tools stdout utf-8: {e}"))
 }
 
-/// Pretty-print stub document for `schema export` (stdout).
-#[must_use]
-pub fn emit_stubs_document() -> String {
-    let map = stub_schema_map();
-    let mut out = String::from("{\n  \"tools\": {\n");
-    let mut first = true;
-    for (name, stub) in &map {
-        if !first {
-            out.push_str(",\n");
+/// Validate emitted document matches hand schemars schemas for canonical tools.
+///
+/// # Errors
+/// When emit fails, JSON is invalid, or a canonical tool / bind field is missing.
+pub fn check_schemars() -> Result<(), String> {
+    let raw = emit_document()?;
+    let doc: Value =
+        serde_json::from_str(&raw).map_err(|e| format!("schema tools JSON parse: {e}"))?;
+    let tools = doc
+        .get("tools")
+        .and_then(|t| t.as_object())
+        .ok_or_else(|| "missing tools object".to_string())?;
+    for name in CANONICAL_TOOL_NAMES {
+        let Some(schema) = tools.get(*name) else {
+            return Err(format!("missing schema for {name}"));
+        };
+        if schema.get("type").and_then(|t| t.as_str()) != Some("object") {
+            return Err(format!("{name}: expected type=object"));
         }
-        first = false;
-        let _ = write!(out, "    \"{name}\": {stub}");
+        if schema.get("x-sak-codegen").and_then(|v| v.as_str()) == Some("stub") {
+            return Err(format!("{name}: still a stub schema"));
+        }
     }
-    out.push_str("\n  },\n  \"x-sak-codegen\": \"stub-dry-run\",\n");
-    out.push_str(
-        "  \"note\": \"full types→JSON Schema deferred; see docs/mcp-schema-codegen.md\"\n}\n",
-    );
-    out
+    let bind = tools
+        .get("bind")
+        .ok_or_else(|| "missing bind".to_string())?;
+    let props = bind
+        .get("properties")
+        .and_then(|p| p.as_object())
+        .ok_or_else(|| "bind missing properties".to_string())?;
+    if !props.contains_key("idempotency_key") {
+        return Err("bind missing idempotency_key (hand schema drift)".into());
+    }
+    if !props.contains_key("policy_template") {
+        return Err("bind missing policy_template (hand schema drift)".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -98,15 +91,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_stubs_ok() {
-        check_stubs().expect("stubs");
-    }
-
-    #[test]
-    fn emit_includes_bind_and_module_invoke() {
-        let doc = emit_stubs_document();
-        assert!(doc.contains("\"bind\""));
-        assert!(doc.contains("\"module_invoke\""));
-        assert!(doc.contains("stub-dry-run"));
+    fn canonical_includes_bind_and_module_invoke() {
+        assert!(CANONICAL_TOOL_NAMES.contains(&"bind"));
+        assert!(CANONICAL_TOOL_NAMES.contains(&"module_invoke"));
+        assert_eq!(CANONICAL_TOOL_NAMES.len(), 18);
     }
 }
