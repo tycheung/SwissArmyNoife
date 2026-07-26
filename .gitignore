@@ -31,3 +31,7 @@ dist/
 
 # Local toolchains (portable Go, etc.)
 .tools/
+
+# Java SDK
+sdks/java/target/
+
