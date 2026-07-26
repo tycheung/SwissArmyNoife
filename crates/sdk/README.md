@@ -5,8 +5,8 @@ use stdio or Streamable HTTP — this crate covers **HTTP admin only** in v0.
 
 **MCP clients:** use the TypeScript / Python `SakMcpClient` (session `initialize` + `bind` /
 `invoke`, `sak329`) for now. A first-party Rust MCP client wrapping [`rmcp`](https://crates.io/crates/rmcp)
-is planned as **Wave 6 / `sak348`** in [`docs/sdk-language-backlog.md`](../../../docs/sdk-language-backlog.md)
-(after the language SDK wave). The broker **server** already uses `rmcp` in `crates/mcp`.
+is planned as **Wave 6 / `sak348`** — spike ADR: [`docs/adr/sdk-rmcp-client.md`](../../../docs/adr/sdk-rmcp-client.md)
+(`sak348-a`). The broker **server** already uses `rmcp` in `crates/mcp`.
 
 
 ## Quickstart
