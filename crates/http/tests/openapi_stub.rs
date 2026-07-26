@@ -31,4 +31,6 @@ fn sak_admin_openapi_stub_exists() {
     assert!(text.contains("/v1/sak/metrics/prometheus"));
     assert!(text.contains("/metrics"));
     assert!(text.contains("/v1/chat/completions"));
+    assert!(text.contains("bearerAuth"));
+    assert!(text.contains("MCP_HTTP_TOKEN"));
 }

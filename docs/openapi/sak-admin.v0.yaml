@@ -7,6 +7,9 @@ info:
   description: |
     Hand-maintained OpenAPI v0 stub (`sak323-d`). Not codegen output — types/OpenAPI generation
     from `types` is deferred to a future epic. Broker admin routes (`sak323-a`).
+    Auth (`sak541-c`): when `MCP_HTTP_TOKEN` is set, all routes require
+    `Authorization: Bearer <token>` (or a minted API key). Use `MCP_HTTP_ALLOW_INSECURE=1`
+    for local tests without a token.
 servers:
   - url: http://127.0.0.1:8787
 paths:
@@ -392,8 +395,17 @@ paths:
           description: OpenAI-ish chat.completion
         "400":
           description: Invalid request / stream not supported / wrong offer
+        "401":
+          description: Missing or invalid bearer (`MCP_HTTP_TOKEN`)
+      security:
+        - bearerAuth: []
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: `MCP_HTTP_TOKEN` or minted `sk_live_…` API key (`sak541`)
   responses:
     BrokerComputeOnly503:
       description: >
