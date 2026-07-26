@@ -1,5 +1,5 @@
 /**
- * OpenAI-shaped chat facade sketch (`sak540-d`).
+ * OpenAI-shaped chat facade via `SakClient.chatCompletions` (`sak546-c`).
  *
  * Requires a running `http-admin` and pre-created bindings (e.g. via MCP `bind`):
  * - `SAK_LLM_BINDING` — `llm.chat` binding UUID
@@ -11,22 +11,11 @@
  * ```
  */
 
+import { SakClient } from "../src/index.js";
+
 const base = process.env.SAK_HTTP ?? "http://127.0.0.1:8787";
 const llmBinding = process.env.SAK_LLM_BINDING;
 const toolsBinding = process.env.SAK_TOOLS_BINDING;
-
-async function chatCompletions(body: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json: unknown = await res.json();
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${JSON.stringify(json)}`);
-  }
-  return json;
-}
 
 async function main(): Promise<void> {
   if (!llmBinding) {
@@ -34,7 +23,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const chat = await chatCompletions({
+  const client = new SakClient(base);
+
+  const chat = await client.chatCompletions({
     binding_id: llmBinding,
     model: "echo",
     messages: [{ role: "user", content: "ping" }],
@@ -42,7 +33,7 @@ async function main(): Promise<void> {
   console.log("chat:", chat);
 
   if (toolsBinding) {
-    const tools = await chatCompletions({
+    const tools = await client.chatCompletions({
       tools_binding_id: toolsBinding,
       messages: [
         {
