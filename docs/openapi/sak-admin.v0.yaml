@@ -1,0 +1,417 @@
+# NOTE (sak323-d): Hand-maintained v0 OpenAPI — not generated from Rust/types.
+# Types/codegen from `types` is a future epic; refresh this file when routes change.
+openapi: 3.0.3
+info:
+  title: SwissArmyNoife HTTP Admin
+  version: 0.1.0
+  description: |
+    Hand-maintained OpenAPI v0 stub (`sak323-d`). Not codegen output — types/OpenAPI generation
+    from `types` is deferred to a future epic. Broker admin routes (`sak323-a`).
+servers:
+  - url: http://127.0.0.1:8787
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Liveness
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+  /v1/sak/health:
+    get:
+      operationId: brokerHealth
+      summary: Broker control-plane health snapshot
+      responses:
+        "200":
+          description: Broker health JSON (offers/bindings/policy)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  offers:
+                    type: integer
+                  bindings:
+                    type: integer
+                  policy:
+                    type: string
+  /v1/sak/modules:
+    get:
+      operationId: listModules
+      summary: List installed modules
+      responses:
+        "200":
+          description: Module list
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/sak/modules/{id}:
+    get:
+      operationId: getModule
+      summary: Module detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Module
+        "404":
+          description: Not found
+  /v1/sak/capacity:
+    get:
+      operationId: capacity
+      summary: Capacity probe snapshot
+      responses:
+        "200":
+          description: Capacity JSON (sak439-e)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityProbeResponse"
+        "503":
+          $ref: "#/components/responses/BrokerCapacityOnly503"
+  /v1/sak/compute/work:
+    get:
+      operationId: listWork
+      summary: List compute work units
+      responses:
+        "200":
+          description: >
+            Work list snapshot (sak440-f / sak491-d). Empty `work: []` is success;
+            null/missing `work` or non-empty `error` is a hard miss (`sak490-i`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComputeWorkListResponse"
+        "503":
+          $ref: "#/components/responses/BrokerComputeOnly503"
+    post:
+      operationId: computeWorkAction
+      summary: Enqueue, claim, complete, get, or list work units (sak421-e / sak423-a / sak424-g)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [enqueue, claim, complete, get, list, requeue]
+                kind:
+                  type: string
+                payload:
+                  type: object
+                node_id:
+                  type: string
+                work_id:
+                  type: string
+                result:
+                  type: object
+                run_id:
+                  type: string
+                  description: Filter for action=list (payload.run_id match)
+                stage_name:
+                  type: string
+                  description: Filter for action=list (kind or payload.stage_name)
+                status:
+                  type: string
+                  description: Filter for action=list (queued|claimed|completed|failed)
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 500
+      responses:
+        "200":
+          description: >
+            Work action result (sak433-f / sak491-d). Claim empty poll: `work` null with
+            optional empty-queue `error` (normalized to `via=broker`). Claim/get/requeue miss:
+            `via=broker_miss` or `status=degraded`. List action: empty `work: []` ok;
+            null/missing list or peel miss is error (`sak490-i`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComputeWorkActionResponse"
+        "503":
+          $ref: "#/components/responses/BrokerComputeOnly503"
+  /v1/sak/compute/nodes:
+    get:
+      operationId: listNodes
+      summary: List compute nodes (AppState ComputePlane SQLite; default COMPUTE_QUEUE=sqlite — sak429)
+      responses:
+        "200":
+          description: >
+            Node list (sak440-f; backend sqlite; via app_state_compute_plane / sak491-d).
+            Empty `nodes: []` is success; null/missing `nodes` or non-empty `error` is miss.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComputeNodeListResponse"
+        "503":
+          $ref: "#/components/responses/BrokerComputeOnly503"
+    post:
+      operationId: computeNodeAction
+      summary: Register, heartbeat, or list compute nodes (sak422–sak429; durable broker.db)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [register, heartbeat, list]
+                label:
+                  type: string
+                caps:
+                  type: array
+                  items:
+                    type: string
+                node_id:
+                  type: string
+                stale_secs:
+                  type: integer
+                session_id:
+                  type: string
+                  description: Session scope for register/list
+      responses:
+        "200":
+          description: Node action result (sak439-e)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComputeNodeActionResponse"
+        "503":
+          $ref: "#/components/responses/BrokerComputeOnly503"
+  /v1/sak/bindings:
+    get:
+      operationId: listBindings
+      summary: List live bindings (policy redacted)
+      responses:
+        "200":
+          description: Binding list
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/sak/bindings/{id}:
+    get:
+      operationId: getBinding
+      summary: Get one binding by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Binding summary
+        "404":
+          description: Not found
+  /v1/sak/metrics:
+    get:
+      operationId: metrics
+      summary: Broker counters as JSONL
+      responses:
+        "200":
+          description: NDJSON metric lines
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+
+components:
+  responses:
+    BrokerComputeOnly503:
+      description: >
+        Broker-only peel refuse (NIMBUSWARE_BROKER_COMPUTE=2) — local mesh unavailable;
+        use SwissArmyNoife `/v1/sak/compute/*` (`sak491-d`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BrokerComputeOnlyProblem"
+    BrokerCapacityOnly503:
+      description: >
+        Broker-only peel refuse (NIMBUSWARE_BROKER_CAPACITY=2) — local hw path unavailable;
+        use SwissArmyNoife `/v1/sak/capacity` (`sak491-d`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BrokerCapacityOnlyProblem"
+  schemas:
+    BrokerProblem:
+      type: object
+      description: RFC7807-style flat problem (`code` + `message`) for broker-only HTTP 503 (`sak491-d`).
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      additionalProperties: false
+    BrokerComputeOnlyProblem:
+      allOf:
+        - $ref: "#/components/schemas/BrokerProblem"
+      description: COMPUTE=2 refuse body (`sak491-d`).
+      example:
+        code: broker_compute_only
+        message: >
+          Nimbusware /v1/compute/* local mesh unavailable under NIMBUSWARE_BROKER_COMPUTE=2;
+          use SwissArmyNoife /v1/sak/compute/*
+    BrokerCapacityOnlyProblem:
+      allOf:
+        - $ref: "#/components/schemas/BrokerProblem"
+      description: CAPACITY=2 refuse body (`sak491-d`).
+      example:
+        code: broker_capacity_only
+        message: >
+          Nimbusware platform hardware local path unavailable under NIMBUSWARE_BROKER_CAPACITY=2;
+          use SwissArmyNoife /v1/sak/capacity
+    ComputeWorkListResponse:
+      type: object
+      description: >
+        HTTP GET /v1/sak/compute/work list snapshot (`sak440-f` / `sak491-d`). Empty array
+        `work: []` is success; null/missing `work` or non-null `error` is a hard miss.
+      properties:
+        work:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        ok:
+          type: boolean
+        via:
+          type: string
+          description: broker, app_state_compute_plane, or broker_miss (peel miss)
+        error:
+          type: string
+        status:
+          type: string
+          description: degraded on peel miss (`sak490-i`)
+        feature:
+          type: string
+        backend:
+          type: string
+      additionalProperties: true
+    ComputeNodeListResponse:
+      type: object
+      description: >
+        HTTP GET /v1/sak/compute/nodes list snapshot (`sak440-f` / `sak491-d`). Empty
+        `nodes: []` is success; null/missing `nodes` or non-null `error` is a hard miss.
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        ok:
+          type: boolean
+        via:
+          type: string
+        error:
+          type: string
+        status:
+          type: string
+        feature:
+          type: string
+        backend:
+          type: string
+      additionalProperties: true
+    CapacityProbeResponse:
+      type: object
+      description: HTTP GET /v1/sak/capacity probe snapshot (`sak439-e`).
+      properties:
+        snapshot:
+          type: object
+          additionalProperties: true
+        total_ram_mb:
+          type: number
+        available_ram_mb:
+          type: number
+        error:
+          type: string
+        hardware_tier:
+          type: string
+      additionalProperties: true
+    ComputeNodeActionResponse:
+      type: object
+      description: >
+        Response for POST /v1/sak/compute/nodes (register, heartbeat, list) (`sak439-e`).
+      properties:
+        ok:
+          type: boolean
+        action:
+          type: string
+          enum: [register, heartbeat, list]
+        node:
+          type: object
+          nullable: true
+          additionalProperties: true
+        nodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        error:
+          type: string
+        via:
+          type: string
+      additionalProperties: true
+    ComputeWorkActionResponse:
+      type: object
+      description: >
+        Response for POST /v1/sak/compute/work actions (enqueue, claim, complete,
+        get, list, requeue). Shape varies by action; common fields below (`sak433-f` /
+        `sak491-d`). Claim empty poll: `work` null + optional empty-queue `error` (SDK
+        normalizes to `via=broker`). Claim miss: `via=broker_miss` even when error mentions
+        empty queue. Get/requeue: record object ok; null/missing `work` is hard miss (no soft
+        empty). List: empty `work: []` ok; null/missing list or peel miss is error (`sak490-i`).
+      properties:
+        ok:
+          type: boolean
+        action:
+          type: string
+          enum: [enqueue, claim, complete, get, list, requeue]
+        work:
+          description: >
+            Single work unit (claim/get/complete/requeue), list array for action=list, or null
+            for claim empty poll
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+        work_id:
+          type: string
+        error:
+          type: string
+          nullable: true
+        via:
+          type: string
+          description: broker (empty poll), app_state_compute_plane, or broker_miss (hard miss)
+        status:
+          type: string
+          description: degraded on peel miss (`sak490-i`)
+        feature:
+          type: string
+      additionalProperties: true

@@ -2,12 +2,9 @@
 
 #[test]
 fn sak_admin_openapi_stub_exists() {
+    // In-repo: SwissArmyNoife/docs (CI checkout has no Agentic parent docs/).
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../docs/openapi/sak-admin.v0.yaml");
-    // Workspace layout: SwissArmyNoife/crates/http → docs is at Agentic/docs
-    let alt = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../docs/openapi/sak-admin.v0.yaml");
-    let path = if path.is_file() { path } else { alt };
     let text = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("missing openapi stub at {}: {e}", path.display()));
     assert!(text.contains("openapi:"));
