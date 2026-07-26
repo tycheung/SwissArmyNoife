@@ -89,6 +89,9 @@ impl AppState {
     }
 
     /// Fix facade rate limit to `per_min` tokens (`sak544-c` tests).
+    ///
+    /// # Panics
+    /// If the rate-limiter mutex is poisoned.
     #[must_use]
     pub fn with_rate_limit_per_min(self, per_min: f64) -> Self {
         *self.rate_limiter.lock().expect("rate lock") = RateLimiter::with_per_min(per_min);

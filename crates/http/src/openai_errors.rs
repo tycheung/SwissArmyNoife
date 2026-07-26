@@ -40,7 +40,6 @@ pub fn openai_type_for(code: ErrorCode) -> &'static str {
 }
 
 /// Facade-local validation error (`binding_required`, …).
-#[must_use]
 pub fn openai_err(status: StatusCode, code: &str, message: impl Into<String>) -> ErrResp {
     (
         status,
@@ -55,7 +54,6 @@ pub fn openai_err(status: StatusCode, code: &str, message: impl Into<String>) ->
 }
 
 /// Broker [`ErrorCode`] as an OpenAI-ish error body.
-#[must_use]
 pub fn openai_err_code(code: ErrorCode, message: impl Into<String>) -> ErrResp {
     (
         status_for(code),

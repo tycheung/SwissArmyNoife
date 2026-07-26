@@ -54,7 +54,7 @@ struct OpenAiFunction {
     arguments: String,
 }
 
-fn message_text(content: &Option<Value>) -> Result<String, ErrResp> {
+fn message_text(content: Option<&Value>) -> Result<String, ErrResp> {
     match content {
         None | Some(Value::Null) => Ok(String::new()),
         Some(Value::String(s)) => Ok(s.clone()),
@@ -264,7 +264,7 @@ async fn invoke_llm(
         .messages
         .iter()
         .map(|m| {
-            message_text(&m.content).map(|content| {
+            message_text(m.content.as_ref()).map(|content| {
                 json!({
                     "role": m.role,
                     "content": content
