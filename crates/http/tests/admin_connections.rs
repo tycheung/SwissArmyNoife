@@ -6,18 +6,16 @@ use http_admin::{app_with_state, AppState};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-fn boot_app() -> axum::Router {
+fn boot_app() -> (axum::Router, tempfile::TempDir) {
     let tmp = tempfile::tempdir().expect("tmp");
-    // Leak so CONFIG_DIR stays valid for the test process duration.
-    let path = tmp.into_path();
-    std::env::set_var(persist_sqlite::CONFIG_DIR, &path);
+    std::env::set_var(persist_sqlite::CONFIG_DIR, tmp.path());
     std::env::set_var(
         vault::VAULT_KEY,
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     );
     let state = AppState::from_env();
     assert!(state.vault.is_some(), "vault should open under CONFIG_DIR");
-    app_with_state(state)
+    (app_with_state(state), tmp)
 }
 
 async fn post_conn(app: axum::Router, id: &str) -> Value {
@@ -49,7 +47,7 @@ async fn post_conn(app: axum::Router, id: &str) -> Value {
 
 #[tokio::test]
 async fn post_and_list_connections_never_echo_secret() {
-    let app = boot_app();
+    let (app, _tmp) = boot_app();
     let created = post_conn(app.clone(), "c1").await;
     assert_eq!(created["connection_id"], "c1");
     assert!(!created.to_string().contains("sk-live"));
@@ -76,7 +74,7 @@ async fn post_and_list_connections_never_echo_secret() {
 
 #[tokio::test]
 async fn get_and_delete_connection_by_id() {
-    let app = boot_app();
+    let (app, _tmp) = boot_app();
     let _ = post_conn(app.clone(), "c1").await;
 
     let got = app
