@@ -25,6 +25,8 @@ jobs:
         run: cargo test --workspace
       - name: boundaries
         run: cargo run -q -p xtask -- boundaries
+      - name: conformance pack (sak529-b)
+        run: cargo run -q -p xtask -- conformance
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2
         with:
