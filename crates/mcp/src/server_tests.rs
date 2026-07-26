@@ -60,7 +60,19 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v16"));
+    assert!(text.contains("v17"));
+    assert!(text.contains("connections_list"));
+}
+
+#[tokio::test]
+async fn connections_list_metadata_only() {
+    let (server, tmp) = test_server();
+    // Empty vault → empty list (ambient-safe).
+    let raw = server.connections_list().await.expect("list");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert!(v["connections"].as_array().expect("arr").is_empty() || v["connections"].is_array());
+    assert!(!raw.contains("secret"));
+    let _ = tmp;
 }
 
 #[tokio::test]

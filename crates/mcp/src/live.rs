@@ -337,7 +337,7 @@ impl LiveOffers {
 }
 
 /// Load vault connection metadata for LLM resolve (no secrets).
-fn vault_connection_refs() -> Vec<ConnectionRef> {
+pub(crate) fn vault_connection_refs() -> Vec<ConnectionRef> {
     let Ok(conn) = persist_sqlite::open_default() else {
         return Vec::new();
     };

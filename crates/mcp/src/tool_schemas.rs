@@ -65,6 +65,10 @@ pub fn tool_input_schemas() -> Value {
         json!({ "type": "object", "properties": {}, "additionalProperties": false }),
     );
     m.insert(
+        "connections_list".into(),
+        json!({ "type": "object", "properties": {}, "additionalProperties": false }),
+    );
+    m.insert(
         "module_list".into(),
         json!({ "type": "object", "properties": {}, "additionalProperties": false }),
     );
@@ -108,6 +112,10 @@ mod tests {
         assert!(
             doc["tools"]["sandbox_jail"].is_object(),
             "sak526-b sandbox_jail schema"
+        );
+        assert!(
+            doc["tools"]["connections_list"].is_object(),
+            "sak527-d connections_list schema"
         );
     }
 }

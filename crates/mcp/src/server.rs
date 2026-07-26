@@ -140,6 +140,22 @@ impl McpServer {
         Ok(json!({ "offers": offers }).to_string())
     }
 
+    /// List vault connection metadata only (no secrets; ambient-safe).
+    #[tool(description = "List vault connection metadata (id/provider/label; no secrets)")]
+    async fn connections_list(&self) -> Result<String, McpError> {
+        let connections: Vec<_> = crate::live::vault_connection_refs()
+            .into_iter()
+            .map(|c| {
+                json!({
+                    "connection_id": c.connection_id,
+                    "provider": c.provider,
+                    "label": c.label,
+                })
+            })
+            .collect();
+        Ok(json!({ "connections": connections }).to_string())
+    }
+
     /// Fetch one offer by id (`catalog.get`).
     #[tool(description = "Get a single catalogued offer by id")]
     async fn catalog_get(
@@ -802,7 +818,7 @@ impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "SwissArmyNoife capability broker v16 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
+                "SwissArmyNoife capability broker v17 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()
