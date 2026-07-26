@@ -4,6 +4,9 @@ mod auth;
 mod routes;
 mod state;
 
+use std::sync::Arc;
+
+use axum::middleware::from_fn;
 use axum::Router;
 
 pub use auth::{
@@ -22,6 +25,8 @@ pub fn app() -> Router {
 
 /// Compose the admin app router with shared state.
 pub fn app_with_state(state: AppState) -> Router {
+    let expected = state.http_token.clone();
+    let api_keys = Arc::clone(&state.api_keys);
     Router::new()
         .merge(health_router())
         .merge(modules_router())
@@ -32,5 +37,10 @@ pub fn app_with_state(state: AppState) -> Router {
         .merge(audit_router())
         .merge(metrics_router())
         .merge(chat_completions_router())
+        .layer(from_fn(move |req, next| {
+            let expected = expected.clone();
+            let api_keys = Arc::clone(&api_keys);
+            async move { auth_middleware(expected, api_keys, req, next).await }
+        }))
         .with_state(state)
 }

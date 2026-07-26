@@ -3,7 +3,9 @@
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use control::{AuditLog, BindRequest, BindingStore, CatalogRegistry, MeterSnapshot, Principal};
+use control::{
+    ApiKeyStore, AuditLog, BindRequest, BindingStore, CatalogRegistry, MeterSnapshot, Principal,
+};
 use offer_compute::ComputePlane;
 use offer_llm::{EchoChatProvider, LlmChatOffer};
 use offer_tools::ToolsLoopOffer;
@@ -37,6 +39,10 @@ pub struct AppState {
     pub llm: Arc<LlmChatOffer<EchoChatProvider>>,
     /// Default `tools.loop` for facade tool round-trips (`sak540-c`).
     pub tools_loop: Arc<ToolsLoopOffer>,
+    /// Expected bearer (`MCP_HTTP_TOKEN`); `None` = no auth (`sak541-b`).
+    pub http_token: Option<String>,
+    /// Minted API keys accepted as bearer (`sak541-b`).
+    pub api_keys: Arc<ApiKeyStore>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<PostgresCatalog>>,
@@ -64,9 +70,18 @@ impl AppState {
             audit: Arc::new(Mutex::new(AuditLog::new())),
             llm,
             tools_loop,
+            http_token: None,
+            api_keys: Arc::new(ApiKeyStore::new()),
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }
+    }
+
+    /// Require `Authorization: Bearer …` matching `token` (`sak541-b` tests).
+    #[must_use]
+    pub fn with_http_token(mut self, token: impl Into<String>) -> Self {
+        self.http_token = Some(token.into());
+        self
     }
 
     /// Create a short-lived `llm.chat` binding (tests / local facade demos).
@@ -123,6 +138,14 @@ impl AppState {
     #[must_use]
     pub fn from_env() -> Self {
         let mut state = Self::new();
+        state.http_token = crate::auth::token_from_env();
+        if state.http_token.is_some() {
+            tracing::info!("http-admin bearer auth enabled (MCP_HTTP_TOKEN)");
+        } else {
+            tracing::warn!(
+                "http-admin auth disabled — set MCP_HTTP_TOKEN (or MCP_HTTP_ALLOW_INSECURE=1)"
+            );
+        }
         match open_vault_store() {
             Ok(store) => {
                 tracing::info!("vault connections store live");
