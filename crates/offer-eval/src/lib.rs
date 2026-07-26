@@ -1,12 +1,14 @@
 //! `eval.*` generic check-runner host (not Nimbusware standards UI).
-//!
-//! Skeleton (`sak531-a`): `eval.run` Offer surface; runner wiring in sak531-b.
+
+mod runner;
 
 use control::{CatalogEntry, Offer};
 use serde_json::Value;
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
-/// First-party `eval.run` offer (check runner wired in sak531-b).
+use runner::run_checks;
+
+/// First-party `eval.run` offer — generic check runner.
 pub struct EvalRunOffer {
     entry: CatalogEntry,
 }
@@ -35,11 +37,14 @@ impl Offer for EvalRunOffer {
     }
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
-        let invoke_id = req.invoke_id;
-        InvokeResp::Error {
-            invoke_id,
-            code: ErrorCode::SchemaInvalid,
-            message: "eval.run runner not configured".into(),
+        let invoke_id = req.invoke_id.unwrap_or_default();
+        match run_checks(&req.args) {
+            Ok(result) => InvokeResp::ok(invoke_id, result),
+            Err((code, message)) => InvokeResp::Error {
+                invoke_id: Some(invoke_id),
+                code,
+                message,
+            },
         }
     }
 
@@ -55,6 +60,7 @@ impl Offer for EvalRunOffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use types::InvokeId;
 
     #[tokio::test]
@@ -65,22 +71,44 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invoke_reports_runner_not_configured() {
+    async fn invoke_fixture_pass() {
         let offer = EvalRunOffer::new().expect("offer");
         let resp = offer
             .invoke(InvokeReq {
                 binding_id: BindingId::new(),
                 invoke_id: Some(InvokeId::new()),
-                args: Value::Object(Default::default()),
+                args: json!({
+                    "checks": [
+                        { "id": "n", "assert": "eq", "actual": 42, "expected": 42 }
+                    ]
+                }),
                 offer: None,
             })
             .await;
         match resp {
-            InvokeResp::Error { code, message, .. } => {
-                assert_eq!(code, ErrorCode::SchemaInvalid);
-                assert!(message.contains("not configured"));
-            }
-            InvokeResp::Ok { .. } => panic!("expected error"),
+            InvokeResp::Ok { result, .. } => assert_eq!(result["passed"], true),
+            InvokeResp::Error { message, .. } => panic!("unexpected error: {message}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn invoke_fixture_fail() {
+        let offer = EvalRunOffer::new().expect("offer");
+        let resp = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                invoke_id: Some(InvokeId::new()),
+                args: json!({
+                    "checks": [
+                        { "id": "n", "assert": "eq", "actual": 1, "expected": 2 }
+                    ]
+                }),
+                offer: None,
+            })
+            .await;
+        match resp {
+            InvokeResp::Ok { result, .. } => assert_eq!(result["passed"], false),
+            InvokeResp::Error { message, .. } => panic!("unexpected error: {message}"),
         }
     }
 }
