@@ -269,6 +269,32 @@ pub(crate) struct SandboxJailArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct EvalCheckArg {
+    pub id: String,
+    /// `eq` | `contains` (default `eq`).
+    #[serde(default = "default_eval_assert")]
+    pub assert: String,
+    #[schemars(schema_with = "json_value_schema")]
+    pub actual: serde_json::Value,
+    #[schemars(schema_with = "json_value_schema")]
+    pub expected: serde_json::Value,
+}
+
+fn default_eval_assert() -> String {
+    "eq".into()
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct EvalRunArgs {
+    /// Binding id from `bind` for `eval.run`.
+    pub binding_id: String,
+    /// Only `run` is supported (default).
+    #[serde(default)]
+    pub op: Option<String>,
+    pub checks: Vec<EvalCheckArg>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct AuditQueryArgs {
     /// Optional offer id filter.
     #[serde(default)]

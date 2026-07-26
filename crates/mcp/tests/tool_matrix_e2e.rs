@@ -31,6 +31,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "llm_telemetry",
     "sandbox_exec",
     "sandbox_jail",
+    "eval_run",
     "fs_read",
     "fs_write",
     "fs_edit",
@@ -277,6 +278,29 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "inside",
+    );
+
+    let eval_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({"offer_id": "eval.run", "ttl_secs": 300}),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "eval_run",
+            json!({
+                "binding_id": eval_id,
+                "checks": [
+                    { "id": "t", "assert": "eq", "actual": 1, "expected": 1 }
+                ]
+            }),
+        )
+        .await?,
+        "passed",
     );
 
     call(

@@ -3,7 +3,7 @@ use crate::tool_args::ChatMessageArg;
 use control::RateLimiter;
 use rmcp::handler::server::wrapper::Parameters;
 use serde_json::Value;
-use types::InvokeResp;
+use types::{ErrorCode, InvokeResp};
 use uuid::Uuid;
 
 fn sample_bind(offer_id: &str) -> BindArgs {
@@ -486,6 +486,72 @@ async fn bind_invoke_sandbox_jail_probe_escape() {
         InvokeResp::Error { code, message, .. } => {
             panic!("unexpected error {code}: {message}")
         }
+    }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
+async fn bind_invoke_eval_run_pass_fail() {
+    let (server, _tmp) = test_server();
+    let bound = server
+        .bind(Parameters(sample_bind("eval.run")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let pass_raw = server
+        .eval_run(Parameters(crate::tool_args::EvalRunArgs {
+            binding_id: binding_id.clone(),
+            op: Some("run".into()),
+            checks: vec![crate::tool_args::EvalCheckArg {
+                id: "a".into(),
+                assert: "eq".into(),
+                actual: json!(1),
+                expected: json!(1),
+            }],
+        }))
+        .await
+        .expect("eval_run pass");
+    let pass: InvokeResp = serde_json::from_str(&pass_raw).expect("InvokeResp");
+    match pass {
+        InvokeResp::Ok { result, .. } => assert_eq!(result["passed"], true),
+        InvokeResp::Error { code, message, .. } => panic!("unexpected {code}: {message}"),
+    }
+    let fail_raw = server
+        .eval_run(Parameters(crate::tool_args::EvalRunArgs {
+            binding_id: binding_id.clone(),
+            op: None,
+            checks: vec![crate::tool_args::EvalCheckArg {
+                id: "b".into(),
+                assert: "eq".into(),
+                actual: json!(1),
+                expected: json!(2),
+            }],
+        }))
+        .await
+        .expect("eval_run fail");
+    let fail: InvokeResp = serde_json::from_str(&fail_raw).expect("InvokeResp");
+    match fail {
+        InvokeResp::Ok { result, .. } => assert_eq!(result["passed"], false),
+        InvokeResp::Error { code, message, .. } => panic!("unexpected {code}: {message}"),
+    }
+    let empty = server
+        .eval_run(Parameters(crate::tool_args::EvalRunArgs {
+            binding_id: binding_id.clone(),
+            op: None,
+            checks: vec![],
+        }))
+        .await
+        .expect("eval_run empty");
+    let empty_resp: InvokeResp = serde_json::from_str(&empty).expect("InvokeResp");
+    match empty_resp {
+        InvokeResp::Error { code, .. } => assert_eq!(code, ErrorCode::SchemaInvalid),
+        InvokeResp::Ok { .. } => panic!("expected schema error"),
     }
     server
         .unbind(Parameters(UnbindArgs { binding_id }))

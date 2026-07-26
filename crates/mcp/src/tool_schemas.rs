@@ -5,12 +5,12 @@ use serde_json::{json, Map, Value};
 
 use crate::tool_args::{
     AuditQueryArgs, BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs,
-    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs,
-    FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs,
-    LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs,
-    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs, ResearchBriefArgs,
-    ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs,
-    TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
+    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs,
+    EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs,
+    LlmEmbedArgs, LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs,
+    MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs,
+    ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs,
+    ShellExecArgs, TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -32,6 +32,7 @@ pub fn tool_input_schemas() -> Value {
     insert::<TelemetryArgs>(&mut m, "llm_telemetry");
     insert::<SandboxExecToolArgs>(&mut m, "sandbox_exec");
     insert::<SandboxJailArgs>(&mut m, "sandbox_jail");
+    insert::<EvalRunArgs>(&mut m, "eval_run");
     insert::<FsReadArgs>(&mut m, "fs_read");
     insert::<FsWriteArgs>(&mut m, "fs_write");
     insert::<FsEditArgs>(&mut m, "fs_edit");
@@ -114,6 +115,10 @@ mod tests {
         assert!(
             doc["tools"]["sandbox_jail"].is_object(),
             "sak526-b sandbox_jail schema"
+        );
+        assert!(
+            doc["tools"]["eval_run"].is_object(),
+            "sak531-c eval_run schema"
         );
         assert!(
             doc["tools"]["connections_list"].is_object(),

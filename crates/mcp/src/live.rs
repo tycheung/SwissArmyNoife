@@ -7,6 +7,7 @@ use control::{CatalogEntry, CatalogRegistry, Offer, RiskLedger};
 use offer_capacity::{CapacityFitOffer, CapacityPressureOffer, CapacityProbeOffer};
 use offer_compute::{ComputeNodeOffer, ComputePlane, ComputeWorkOffer};
 use offer_egress::{EgressCheckOffer, EgressFetchOffer};
+use offer_eval::EvalRunOffer;
 use offer_llm::{
     ChatProviders, ConnectionRef, EchoChatProvider, LlmChatOffer, LlmEmbedOffer,
     LlmOllamaManageOffer, LlmPreflightOffer, LlmResolveOffer, LlmTelemetryOffer,
@@ -246,6 +247,7 @@ pub struct LiveOffers {
     pub capacity_fit: CapacityFitOffer,
     pub compute_node: ComputeNodeOffer,
     pub compute_work: ComputeWorkOffer,
+    pub eval_run: EvalRunOffer,
 }
 
 impl LiveOffers {
@@ -304,6 +306,7 @@ impl LiveOffers {
             capacity_fit: CapacityFitOffer::new(probe)?,
             compute_node: ComputeNodeOffer::new(Arc::clone(&compute))?,
             compute_work: ComputeWorkOffer::new(compute)?,
+            eval_run: EvalRunOffer::new()?,
         })
     }
 
@@ -332,6 +335,7 @@ impl LiveOffers {
         catalog.register_offer(&self.capacity_fit);
         catalog.register_offer(&self.compute_node);
         catalog.register_offer(&self.compute_work);
+        catalog.register_offer(&self.eval_run);
         catalog
     }
 }

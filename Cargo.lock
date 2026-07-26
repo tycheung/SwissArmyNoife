@@ -1558,6 +1558,7 @@ dependencies = [
  "offer-capacity",
  "offer-compute",
  "offer-egress",
+ "offer-eval",
  "offer-llm",
  "offer-memory",
  "offer-research",

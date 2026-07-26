@@ -8,12 +8,12 @@ use crate::resources::{list_resources, read_resource};
 use crate::session::bind_pack;
 use crate::tool_args::{
     AuditQueryArgs, BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs,
-    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs,
-    FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs,
-    LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs,
-    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs, ResearchBriefArgs,
-    ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs,
-    TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
+    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs,
+    EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs,
+    LlmEmbedArgs, LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs,
+    MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs,
+    ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs,
+    ShellExecArgs, TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 use crate::util::{expires_unix, parse_binding_id, serialize_resp};
 use crate::workspace_tools::boot_fs_shell;
@@ -739,6 +739,15 @@ impl McpServer {
         self.sandbox_jail_inner(args).await
     }
 
+    /// Typed invoke for `eval.run`.
+    #[tool(description = "Run generic eval checks (eq/contains) (returns InvokeResp)")]
+    async fn eval_run(
+        &self,
+        Parameters(args): Parameters<EvalRunArgs>,
+    ) -> Result<String, McpError> {
+        self.eval_run_inner(args).await
+    }
+
     /// Typed invoke for `memory.index`.
     #[tool(description = "Rebuild memory index from documents (returns InvokeResp)")]
     async fn memory_index(
@@ -871,7 +880,7 @@ impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "SwissArmyNoife capability broker v19 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, rate_limit_status, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
+                "SwissArmyNoife capability broker v20 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, rate_limit_status, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, eval_run, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()

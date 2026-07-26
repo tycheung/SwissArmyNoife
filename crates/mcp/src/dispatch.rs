@@ -44,6 +44,7 @@ impl McpServer {
             "capacity.fit" => self.offers.capacity_fit.bind(binding_id, policy).await,
             "compute.node" => self.offers.compute_node.bind(binding_id, policy).await,
             "compute.work" => self.offers.compute_work.bind(binding_id, policy).await,
+            "eval.run" => self.offers.eval_run.bind(binding_id, policy).await,
             _ => Ok(()),
         };
         result.map_err(|code| McpError::invalid_params(format!("{code}: offer.bind failed"), None))
@@ -79,6 +80,7 @@ impl McpServer {
             "capacity.fit" => self.offers.capacity_fit.unbind(binding_id).await,
             "compute.node" => self.offers.compute_node.unbind(binding_id).await,
             "compute.work" => self.offers.compute_work.unbind(binding_id).await,
+            "eval.run" => self.offers.eval_run.unbind(binding_id).await,
             _ => Ok(()),
         }
     }
@@ -141,6 +143,7 @@ impl McpServer {
             "capacity.fit" => dispatcher.invoke(&self.offers.capacity_fit, req).await,
             "compute.node" => dispatcher.invoke(&self.offers.compute_node, req).await,
             "compute.work" => dispatcher.invoke(&self.offers.compute_work, req).await,
+            "eval.run" => dispatcher.invoke(&self.offers.eval_run, req).await,
             _ => {
                 let version = self
                     .catalog

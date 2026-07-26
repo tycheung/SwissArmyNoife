@@ -3,7 +3,7 @@
 use crate::server::McpServer;
 use crate::tool_args::{
     CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
-    EgressCheckArgs, EgressFetchArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
+    EgressCheckArgs, EgressFetchArgs, EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
     MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs,
     ResearchFetchArgs, SandboxJailArgs, ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
 };
@@ -190,6 +190,35 @@ impl McpServer {
             "path": path,
         });
         let claim = OfferId::new("sandbox.jail").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn eval_run_inner(&self, args: EvalRunArgs) -> Result<String, McpError> {
+        let EvalRunArgs {
+            binding_id,
+            op,
+            checks,
+        } = args;
+        let binding_id = parse_binding_id(&binding_id)?;
+        let checks: Vec<_> = checks
+            .into_iter()
+            .map(|c| {
+                json!({
+                    "id": c.id,
+                    "assert": c.assert,
+                    "actual": c.actual,
+                    "expected": c.expected,
+                })
+            })
+            .collect();
+        let invoke_args = json!({
+            "op": op.unwrap_or_else(|| "run".into()),
+            "checks": checks,
+        });
+        let claim = OfferId::new("eval.run").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;

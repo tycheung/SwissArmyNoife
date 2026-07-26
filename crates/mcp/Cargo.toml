@@ -38,6 +38,7 @@ offer-memory = { path = "../offer-memory" }
 offer-research = { path = "../offer-research" }
 offer-capacity = { path = "../offer-capacity" }
 offer-compute = { path = "../offer-compute" }
+offer-eval = { path = "../offer-eval" }
 persist-sqlite = { path = "../persist-sqlite" }
 vault = { path = "../vault" }
 module-registry = { path = "../module-registry" }
