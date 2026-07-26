@@ -68,7 +68,7 @@ impl SakClient {
 
     /// `POST /v1/chat/completions` — OpenAI-shaped facade over `llm.chat` / `tools.loop` (`sak545-a`).
     ///
-    /// Caller supplies a pre-bound `binding_id` (or `tools_binding_id` for tool_calls).
+    /// Caller supplies a pre-bound `binding_id` (or `tools_binding_id` for `tool_calls`).
     ///
     /// # Errors
     /// Transport / non-success / JSON parse.
