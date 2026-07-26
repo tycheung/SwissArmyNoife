@@ -1,4 +1,4 @@
-//! SwissArmyNoife HTTP admin binary (`sak363`).
+//! `SwissArmyNoife` HTTP admin binary (`sak363`).
 
 use std::net::SocketAddr;
 

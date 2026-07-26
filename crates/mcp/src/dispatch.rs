@@ -79,8 +79,7 @@ impl McpServer {
             let store = self.bindings.lock().await;
             store
                 .get(binding_id)
-                .map(|r| r.principal.as_str().to_owned())
-                .unwrap_or_else(|_| "unknown".into())
+                .map_or_else(|_| "unknown".into(), |r| r.principal.as_str().to_owned())
         };
         self.rate_limiter
             .lock()

@@ -69,6 +69,7 @@ mod tests {
     use rmcp::model::NumberOrString;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn progress_param_shapes() {
         let token = ProgressToken(NumberOrString::Number(1.into()));
         let p = progress_param(token, 0.5, Some(1.0), "halfway");

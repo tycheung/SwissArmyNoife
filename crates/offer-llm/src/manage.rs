@@ -78,7 +78,7 @@ async fn run(provider: &OllamaProvider, args: &Value) -> Result<Value, (ErrorCod
         .map_err(|e| (ErrorCode::SchemaInvalid, format!("manage args: {e}")))?;
     match parsed.action.as_str() {
         "list" => {
-            let models = provider.list_models().await.map_err(map_err)?;
+            let models = provider.list_models().await.map_err(|e| map_err(&e))?;
             Ok(json!({ "models": models }))
         }
         "pull" => {
@@ -86,7 +86,7 @@ async fn run(provider: &OllamaProvider, args: &Value) -> Result<Value, (ErrorCod
                 .model
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| (ErrorCode::SchemaInvalid, "pull requires model".into()))?;
-            provider.pull_model(&name).await.map_err(map_err)?;
+            provider.pull_model(&name).await.map_err(|e| map_err(&e))?;
             Ok(json!({ "pulled": name }))
         }
         "delete" => {
@@ -94,7 +94,10 @@ async fn run(provider: &OllamaProvider, args: &Value) -> Result<Value, (ErrorCod
                 .model
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| (ErrorCode::SchemaInvalid, "delete requires model".into()))?;
-            provider.delete_model(&name).await.map_err(map_err)?;
+            provider
+                .delete_model(&name)
+                .await
+                .map_err(|e| map_err(&e))?;
             Ok(json!({ "deleted": name }))
         }
         other => Err((
@@ -104,7 +107,7 @@ async fn run(provider: &OllamaProvider, args: &Value) -> Result<Value, (ErrorCod
     }
 }
 
-fn map_err(e: ProviderError) -> (ErrorCode, String) {
+fn map_err(e: &ProviderError) -> (ErrorCode, String) {
     (e.to_error_code(), e.to_string())
 }
 
@@ -140,7 +143,7 @@ mod tests {
             InvokeResp::Ok { result, .. } => {
                 assert_eq!(result["models"][0], "llama3.2:latest");
             }
-            other => panic!("unexpected {other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("unexpected {other:?}"),
         }
     }
 }

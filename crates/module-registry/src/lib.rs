@@ -1,4 +1,4 @@
-//! SwissArmyNoife local module cache + pin file (`sak351` / `sak352`).
+//! `SwissArmyNoife` local module cache + pin file (`sak351` / `sak352`).
 
 mod ed25519_sig;
 mod pins;

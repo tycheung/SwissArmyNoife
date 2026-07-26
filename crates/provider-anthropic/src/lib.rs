@@ -233,6 +233,7 @@ mod tests {
                 ],
                 max_tokens: Some(64),
                 temperature: Some(0.2),
+                prompt_cache_key: None,
             })
             .await
             .expect("chat");
@@ -276,6 +277,7 @@ mod tests {
                 }],
                 max_tokens: None,
                 temperature: None,
+                prompt_cache_key: None,
             })
             .await
             .expect_err("fail");

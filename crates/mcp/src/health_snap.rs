@@ -15,11 +15,7 @@ pub(crate) struct McpHealthSnapshot {
 impl HealthSnapshot for McpHealthSnapshot {
     fn snapshot(&self) -> Value {
         let offers = self.catalog.list().len();
-        let bindings = self
-            .bindings
-            .try_lock()
-            .map(|g| g.list().len())
-            .unwrap_or(0);
+        let bindings = self.bindings.try_lock().map_or(0, |g| g.list().len());
         let policy = if self.policy.is_ambient() {
             "ambient"
         } else {

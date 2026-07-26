@@ -93,7 +93,7 @@ mod tests {
                 assert_eq!(result["source"], "fake");
                 assert!(result["total_ram_mb"].as_u64().unwrap() > 0);
             }
-            other => panic!("unexpected {other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("unexpected {other:?}"),
         }
     }
 }

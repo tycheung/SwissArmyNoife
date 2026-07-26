@@ -62,18 +62,17 @@ pub fn verify_ed25519_if_present(
     if !sig_path.exists() {
         return Ok(VerifyStatus::Unsigned);
     }
-    let vk = match trusted_pubkey {
-        Some(k) => *k,
-        None => {
-            let raw = fs::read_to_string(package_dir.join(ED25519_PUBKEY_FILE))
-                .map_err(|_| ErrorCode::ModuleIncompatible)?;
-            let bytes = hex_decode(raw.trim())?;
-            let arr: [u8; 32] = bytes
-                .as_slice()
-                .try_into()
-                .map_err(|_| ErrorCode::ModuleIncompatible)?;
-            VerifyingKey::from_bytes(&arr).map_err(|_| ErrorCode::ModuleIncompatible)?
-        }
+    let vk = if let Some(k) = trusted_pubkey {
+        *k
+    } else {
+        let raw = fs::read_to_string(package_dir.join(ED25519_PUBKEY_FILE))
+            .map_err(|_| ErrorCode::ModuleIncompatible)?;
+        let bytes = hex_decode(raw.trim())?;
+        let arr: [u8; 32] = bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| ErrorCode::ModuleIncompatible)?;
+        VerifyingKey::from_bytes(&arr).map_err(|_| ErrorCode::ModuleIncompatible)?
     };
     let sig_hex = fs::read_to_string(&sig_path).map_err(|_| ErrorCode::SchemaInvalid)?;
     let sig_bytes = hex_decode(sig_hex.trim())?;

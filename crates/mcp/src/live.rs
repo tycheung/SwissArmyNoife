@@ -143,6 +143,11 @@ pub enum LiveSandbox {
 }
 
 impl LiveSandbox {
+    /// Select host or stub sandbox from `SANDBOX_BACKEND` env.
+    ///
+    /// # Errors
+    /// Returns `SchemaInvalid` if the jail directory cannot be created or the
+    /// chosen backend fails to construct.
     pub fn from_env(jail_root: &Path) -> Result<Self, ErrorCode> {
         std::fs::create_dir_all(jail_root).map_err(|e| {
             warn!(error = %e, path = %jail_root.display(), "jail mkdir failed");
@@ -234,6 +239,11 @@ pub struct LiveOffers {
 }
 
 impl LiveOffers {
+    /// Build the live offer pack from process environment.
+    ///
+    /// # Errors
+    /// Returns `SchemaInvalid` (or related codes) when sandbox, compute plane,
+    /// or nested offer construction fails.
     pub fn from_env() -> Result<Self, ErrorCode> {
         let jail: PathBuf = env::config_dir().join("sandbox-jail");
         let plane = Arc::new(MemoryPlane::new());

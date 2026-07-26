@@ -1,4 +1,4 @@
-//! sak430-h: SakClient.requeue_work posts expected body.
+//! `sak430-h`: `SakClient::requeue_work` posts expected body.
 
 use serde_json::json;
 use wiremock::matchers::{method, path};

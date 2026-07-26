@@ -56,6 +56,9 @@ impl fmt::Display for InventoryLoadError {
 impl std::error::Error for InventoryLoadError {}
 
 /// Reject duplicate host ids (`sak275-i`).
+///
+/// # Errors
+/// [`InventoryLoadError::DuplicateId`] when an id appears more than once.
 pub fn unique_host_ids(ids: &[String]) -> Result<Vec<String>, InventoryLoadError> {
     let mut seen = HashSet::new();
     let mut out = Vec::with_capacity(ids.len());
@@ -71,12 +74,18 @@ pub fn unique_host_ids(ids: &[String]) -> Result<Vec<String>, InventoryLoadError
 /// Read a UTF-8 inventory file and extract host ids (`sak275-h`).
 ///
 /// Does **not** open SSH or validate addresses — parse only.
+///
+/// # Errors
+/// [`InventoryLoadError::Io`] when the file cannot be read.
 pub fn host_ids_from_inventory_path(path: &Path) -> Result<Vec<String>, InventoryLoadError> {
     let text = fs::read_to_string(path).map_err(|e| InventoryLoadError::Io(e.to_string()))?;
     Ok(host_ids_from_inventory_sketch(&text))
 }
 
 /// Load path then require unique ids (`sak275-i`).
+///
+/// # Errors
+/// Propagates I/O errors from [`host_ids_from_inventory_path`] or duplicate-id errors.
 pub fn unique_host_ids_from_inventory_path(path: &Path) -> Result<Vec<String>, InventoryLoadError> {
     let ids = host_ids_from_inventory_path(path)?;
     unique_host_ids(&ids)
@@ -97,6 +106,9 @@ pub fn inventory_path_from_env() -> Option<PathBuf> {
 /// Load unique host ids when [`SSH_INVENTORY_ENV`] is set (`sak275-j`).
 ///
 /// Returns `Ok(None)` when the env var is unset/blank.
+///
+/// # Errors
+/// Propagates inventory load / uniqueness errors when the env path is set.
 pub fn unique_host_ids_from_env() -> Result<Option<Vec<String>>, InventoryLoadError> {
     match inventory_path_from_env() {
         Some(path) => unique_host_ids_from_inventory_path(&path).map(Some),

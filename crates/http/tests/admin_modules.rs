@@ -12,6 +12,7 @@ use tower::ServiceExt;
 static LOCK: Mutex<()> = Mutex::new(());
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock, clippy::too_many_lines)]
 async fn health_and_modules() {
     let _g = LOCK.lock().unwrap();
     let tmp = tempfile::tempdir().unwrap();
@@ -122,6 +123,7 @@ async fn health_and_modules() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock, clippy::too_many_lines)]
 async fn compute_work_and_nodes_post_roundtrip() {
     let _g = LOCK.lock().unwrap();
     let tmp = tempfile::tempdir().unwrap();
@@ -215,7 +217,7 @@ async fn compute_work_and_nodes_post_roundtrip() {
     assert!(done.get("work").is_some(), "{done}");
 
     let list_body =
-        format!(r#"{{"action":"list","run_id":"r-filter","stage_name":"echo","limit":50}}"#);
+        r#"{"action":"list","run_id":"r-filter","stage_name":"echo","limit":50}"#.to_string();
     // enqueue a second unit with run_id in payload for list filter
     let _ = app
         .clone()
@@ -249,7 +251,7 @@ async fn compute_work_and_nodes_post_roundtrip() {
         .unwrap();
     let list_json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert!(
-        list_json["work"].as_array().unwrap().len() >= 1,
+        !list_json["work"].as_array().unwrap().is_empty(),
         "{list_json}"
     );
 
@@ -273,6 +275,7 @@ async fn compute_work_and_nodes_post_roundtrip() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)]
 async fn compute_work_enqueue_claim_requeue_roundtrip() {
     // sak430-c: AppState ComputePlane requeue after claim
     let _g = LOCK.lock().unwrap();

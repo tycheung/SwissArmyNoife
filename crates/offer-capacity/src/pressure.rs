@@ -24,12 +24,12 @@ pub fn sample_pressure(snap: &HardwareSnapshot, budget: &GovernorBudget) -> Pres
     let ram_used_ratio = if snap.total_ram_mb == 0 {
         1.0
     } else {
-        ram_used as f32 / snap.total_ram_mb as f32
+        mb_f32(ram_used) / mb_f32(snap.total_ram_mb)
     };
 
     let vram_used_ratio = if snap.total_vram_mb > 0 {
         let used = snap.total_vram_mb.saturating_sub(snap.available_vram_mb);
-        Some(used as f32 / snap.total_vram_mb as f32)
+        Some(mb_f32(used) / mb_f32(snap.total_vram_mb))
     } else {
         None
     };
@@ -74,12 +74,22 @@ pub fn sample_pressure(snap: &HardwareSnapshot, budget: &GovernorBudget) -> Pres
 }
 
 /// Map deny → [`ErrorCode::BudgetExhausted`].
+///
+/// # Errors
+/// Returns [`ErrorCode::BudgetExhausted`] when `sample.admit` is false.
 pub fn admit_or_err(sample: &PressureSample) -> Result<(), ErrorCode> {
     if sample.admit {
         Ok(())
     } else {
         Err(ErrorCode::BudgetExhausted)
     }
+}
+
+/// MB counts for ratio scoring stay far below `f32` precision limits in practice.
+#[allow(clippy::cast_precision_loss)]
+#[inline]
+fn mb_f32(v: u64) -> f32 {
+    v as f32
 }
 
 #[cfg(test)]

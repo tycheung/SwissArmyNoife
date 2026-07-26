@@ -129,7 +129,7 @@ mod tests {
                 let ranks = result["ranks"].as_array().unwrap();
                 assert_eq!(ranks[0]["id"], "b");
             }
-            other => panic!("{other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
     }
 }

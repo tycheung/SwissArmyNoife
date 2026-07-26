@@ -13,7 +13,6 @@ async fn get_capacity() -> Json<Value> {
     }))
 }
 
-#[must_use]
 pub fn capacity_router() -> Router<AppState> {
     Router::new().route("/v1/sak/capacity", get(get_capacity))
 }

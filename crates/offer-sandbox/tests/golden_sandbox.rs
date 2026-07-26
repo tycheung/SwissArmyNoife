@@ -31,8 +31,8 @@ fn path_escape_fixture_expectation_string() {
 
 #[tokio::test]
 async fn argv_empty_fixture_schema_invalid() {
-    let fix = load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/argv-empty.json")
-        .expect("fixture");
+    let fix =
+        load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/argv-empty.json").expect("fixture");
     assert_eq!(fix["schema"], "sak.fixture.offer/v0");
     let needle = fix["expect"]["message_contains"]
         .as_str()

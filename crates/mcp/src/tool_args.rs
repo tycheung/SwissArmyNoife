@@ -85,7 +85,7 @@ pub(crate) struct LlmChatToolArgs {
     pub max_tokens: Option<u32>,
     #[serde(default)]
     pub temperature: Option<f32>,
-    /// Collect provider stream into `chunks` in the InvokeResp result.
+    /// Collect provider stream into `chunks` in the `InvokeResp` result.
     #[serde(default)]
     pub stream: Option<bool>,
     /// Optional provider prompt-cache key (passthrough; backends may ignore).

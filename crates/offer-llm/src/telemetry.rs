@@ -1,4 +1,4 @@
-//! `llm.telemetry` — token / binding_source records (`sak140`).
+//! `llm.telemetry` — token / `binding_source` records (`sak140`).
 
 use std::sync::Mutex;
 
@@ -154,7 +154,7 @@ mod tests {
             .await;
         match resp {
             InvokeResp::Ok { result, .. } => assert_eq!(result["recorded"], true),
-            other => panic!("{other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
         let listed = offer
             .invoke(InvokeReq {
@@ -169,7 +169,7 @@ mod tests {
                 assert_eq!(result["records"][0]["provider"], "echo");
                 assert_eq!(result["records"][0]["prompt_tokens"], 3);
             }
-            other => panic!("{other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
     }
 }

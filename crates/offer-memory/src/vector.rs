@@ -142,7 +142,7 @@ mod tests {
         assert!(BackendKind::parse("annoy").is_none());
     }
 
-    /// `BackendKind::Faiss` still uses NaiveIndex stand-in (`sak222b-f`).
+    /// `BackendKind::Faiss` still uses `NaiveIndex` stand-in (`sak222b-f`).
     #[test]
     fn faiss_backend_uses_naive_fallback() {
         let mut idx = DynIndex::new(BackendKind::Faiss);

@@ -60,12 +60,16 @@ pub struct PoolHandle {
 
 impl PoolHandle {
     /// Validate `config` then open a pool when built with `--features postgres`.
+    ///
+    /// # Errors
+    /// Invalid URL scheme, missing postgres feature, or connect failure.
+    #[allow(clippy::needless_pass_by_value)] // owned into live pool when feature enabled
     pub fn try_connect(config: PoolConfig) -> Result<Self, PoolConnectError> {
         config.validate_url_scheme()?;
         #[cfg(not(feature = "postgres"))]
         {
             let _ = config;
-            return Err(PoolConnectError::NotImplemented);
+            Err(PoolConnectError::NotImplemented)
         }
         #[cfg(feature = "postgres")]
         {
@@ -74,6 +78,9 @@ impl PoolHandle {
     }
 
     /// Build an **unconnected** handle after scheme validation (`sak070-y`).
+    ///
+    /// # Errors
+    /// [`PoolConfigError`] when the URL scheme is invalid or missing.
     pub fn unconnected(config: PoolConfig) -> Result<Self, PoolConfigError> {
         config.validate_url_scheme()?;
         Ok(Self {
@@ -103,6 +110,9 @@ impl PoolHandle {
     }
 
     /// Resolve [`PoolConfig::try_from_env`] then [`Self::try_connect`].
+    ///
+    /// # Errors
+    /// Config or connect failures from the underlying helpers.
     pub fn try_connect_from_env() -> Result<Self, PoolConnectError> {
         let cfg = PoolConfig::try_from_env()?;
         Self::try_connect(cfg)
@@ -111,11 +121,14 @@ impl PoolHandle {
     /// Run `sql` on a connected pool (sync wrapper).
     ///
     /// Returns [`PoolConnectError::NotImplemented`] when not connected / feature off.
+    ///
+    /// # Errors
+    /// Not connected / feature off, or SQL execute failure.
     pub fn execute_sql(&self, sql: &str) -> Result<(), PoolConnectError> {
         #[cfg(not(feature = "postgres"))]
         {
             let _ = sql;
-            return Err(PoolConnectError::NotImplemented);
+            Err(PoolConnectError::NotImplemented)
         }
         #[cfg(feature = "postgres")]
         {
@@ -291,6 +304,9 @@ impl PoolConfig {
     }
 
     /// Build from env and validate URL scheme (`sak070-h`).
+    ///
+    /// # Errors
+    /// Missing URL or invalid scheme.
     pub fn try_from_env() -> Result<Self, PoolConfigError> {
         let cfg = Self::from_env().ok_or(PoolConfigError::MissingUrl)?;
         cfg.validate_url_scheme()?;
@@ -298,6 +314,9 @@ impl PoolConfig {
     }
 
     /// Soft-validate URL scheme before connect (`sak070-g`).
+    ///
+    /// # Errors
+    /// [`PoolConfigError::MissingUrl`] or [`PoolConfigError::InvalidUrl`].
     pub fn validate_url_scheme(&self) -> Result<(), PoolConfigError> {
         let lower = self.url.trim().to_ascii_lowercase();
         if lower.starts_with("postgres://") || lower.starts_with("postgresql://") {

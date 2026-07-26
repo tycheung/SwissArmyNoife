@@ -20,7 +20,6 @@ async fn metrics(State(state): State<AppState>) -> Response {
         .into_response()
 }
 
-#[must_use]
 pub fn metrics_router() -> Router<AppState> {
     Router::new().route("/v1/sak/metrics", get(metrics))
 }

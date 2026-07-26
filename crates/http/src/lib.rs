@@ -1,4 +1,4 @@
-//! SwissArmyNoife local HTTP admin surface (`sak363`) — list installed modules only.
+//! `SwissArmyNoife` local HTTP admin surface (`sak363`) — list installed modules only.
 
 mod routes;
 mod state;
@@ -11,13 +11,11 @@ pub use routes::{
 pub use state::AppState;
 
 /// Compose the admin app router with empty in-memory state.
-#[must_use]
 pub fn app() -> Router {
     app_with_state(AppState::from_env())
 }
 
 /// Compose the admin app router with shared state.
-#[must_use]
 pub fn app_with_state(state: AppState) -> Router {
     Router::new()
         .merge(health_router())

@@ -42,7 +42,9 @@ pub(crate) mod test_lock {
 
     /// Shared process-env lock for `env` + `pool` tests (recover from poison).
     pub(crate) fn lock() -> MutexGuard<'static, ()> {
-        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+        ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 

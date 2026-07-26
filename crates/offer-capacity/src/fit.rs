@@ -59,9 +59,9 @@ pub fn rank_models(
                 reason = format!("vram_mb {} > max_vram_mb {}", c.vram_mb, budget.max_vram_mb);
             }
 
-            let headroom = snap.available_ram_mb.saturating_sub(c.ram_mb) as f32;
+            let headroom = mb_f32(snap.available_ram_mb.saturating_sub(c.ram_mb));
             let score = if fits {
-                headroom / (snap.total_ram_mb.max(1) as f32)
+                headroom / mb_f32(snap.total_ram_mb.max(1))
             } else {
                 -1.0
             };
@@ -85,6 +85,13 @@ pub fn rank_models(
             .then(a.id.cmp(&b.id))
     });
     ranks
+}
+
+/// MB counts for ratio scoring stay far below `f32` precision limits in practice.
+#[allow(clippy::cast_precision_loss)]
+#[inline]
+fn mb_f32(v: u64) -> f32 {
+    v as f32
 }
 
 #[cfg(test)]

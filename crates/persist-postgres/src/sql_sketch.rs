@@ -4,7 +4,7 @@
 //! Real `try_apply` will run these (or equivalent) against a live pool later.
 
 /// Sketch `catalog_offers` DDL for Postgres (`sak070-o`).
-pub const CATALOG_OFFERS_DDL: &str = r#"
+pub const CATALOG_OFFERS_DDL: &str = r"
 CREATE TABLE IF NOT EXISTS catalog_offers (
     offer_id TEXT PRIMARY KEY,
     version TEXT NOT NULL,
@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS catalog_offers (
     descriptor_json TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
-"#;
+";
 
 /// Sketch `bindings` DDL for Postgres (`sak070-o`).
-pub const BINDINGS_DDL: &str = r#"
+pub const BINDINGS_DDL: &str = r"
 CREATE TABLE IF NOT EXISTS bindings (
     binding_id TEXT PRIMARY KEY,
     offer_id TEXT NOT NULL REFERENCES catalog_offers(offer_id),
@@ -24,10 +24,10 @@ CREATE TABLE IF NOT EXISTS bindings (
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
-"#;
+";
 
 /// Sketch `audit_invokes` DDL for Postgres (`sak070-o`).
-pub const AUDIT_INVOKES_DDL: &str = r#"
+pub const AUDIT_INVOKES_DDL: &str = r"
 CREATE TABLE IF NOT EXISTS audit_invokes (
     invoke_id TEXT PRIMARY KEY,
     binding_id TEXT NOT NULL REFERENCES bindings(binding_id),
@@ -37,15 +37,15 @@ CREATE TABLE IF NOT EXISTS audit_invokes (
     detail_json TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
-"#;
+";
 
 /// Sketch `schema_migrations` DDL for Postgres (`sak070-s`).
-pub const SCHEMA_MIGRATIONS_DDL: &str = r#"
+pub const SCHEMA_MIGRATIONS_DDL: &str = r"
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
-"#;
+";
 
 /// Sketch index on `bindings(offer_id)` (`sak070-u`).
 pub const IDX_BINDINGS_OFFER_DDL: &str =

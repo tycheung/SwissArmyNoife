@@ -138,9 +138,11 @@ mod tests {
             candidates
                 .iter()
                 .map(|c| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let score = 1.0 / (c.ram_mb as f32 + 1.0);
                     json!({
                         "id": c.id,
-                        "score": 1.0 / (c.ram_mb as f32 + 1.0),
+                        "score": score,
                         "fits": c.ram_mb < 10_000,
                         "reason": "ok"
                     })
@@ -171,7 +173,7 @@ mod tests {
                 assert_eq!(result["reachable"], true);
                 assert_eq!(result["recommended_model"], "small");
             }
-            other => panic!("{other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
     }
 }

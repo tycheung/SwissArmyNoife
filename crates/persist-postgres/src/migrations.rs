@@ -31,6 +31,10 @@ pub enum MigrationError {
 
 /// Executes one DDL statement (`sak070-w`).
 pub trait MigrationExecutor {
+    /// Run one SQL statement.
+    ///
+    /// # Errors
+    /// Executor-specific failures (unimplemented, execute errors).
     fn execute(&mut self, sql: &str) -> Result<(), MigrationError>;
 }
 
@@ -80,6 +84,9 @@ impl MigrationExecutor for PoolBoundMigrationExecutor<'_> {
 }
 
 /// Apply [`planned_statements`] via `executor` (`sak070-x`).
+///
+/// # Errors
+/// Propagates [`MigrationExecutor::execute`] failures.
 pub fn try_apply_with_executor(
     _schema_version: u32,
     executor: &mut dyn MigrationExecutor,
@@ -94,12 +101,18 @@ pub fn try_apply_with_executor(
 ///
 /// Requires a connected [`PoolHandle`] (`--features postgres`); otherwise
 /// [`MigrationError::NotImplemented`].
+///
+/// # Errors
+/// Propagates executor / pool execute failures.
 pub fn try_apply_with_pool(schema_version: u32, pool: &PoolHandle) -> Result<(), MigrationError> {
     let mut exec = PoolBoundMigrationExecutor { pool };
     try_apply_with_executor(schema_version, &mut exec)
 }
 
 /// Apply planned DDL then post-apply DML via `executor` (`sak070-aj`).
+///
+/// # Errors
+/// Propagates planned or post-apply execute failures.
 pub fn try_apply_planned_then_post(
     schema_version: u32,
     executor: &mut dyn MigrationExecutor,
@@ -115,6 +128,9 @@ pub fn try_apply_planned_then_post(
 ///
 /// Requires a connected [`PoolHandle`] (`--features postgres`); otherwise
 /// [`MigrationError::NotImplemented`].
+///
+/// # Errors
+/// Propagates executor / pool execute failures.
 pub fn try_apply_planned_then_post_with_pool(
     schema_version: u32,
     pool: &PoolHandle,
@@ -127,6 +143,9 @@ pub fn try_apply_planned_then_post_with_pool(
 ///
 /// Uses [`UnimplementedMigrationExecutor`] until a real pool executor lands.
 /// See [`planned_statements`] for the DDL that will run later (`sak070-q`).
+///
+/// # Errors
+/// [`MigrationError::NotImplemented`] until a live executor is wired.
 pub fn try_apply(schema_version: u32) -> Result<(), MigrationError> {
     let mut exec = UnimplementedMigrationExecutor;
     try_apply_with_executor(schema_version, &mut exec)

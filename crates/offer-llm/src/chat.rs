@@ -299,7 +299,7 @@ mod tests {
                 assert_eq!(result["streamed"], true);
                 assert!(result["chunks"].as_array().unwrap().len() >= 2);
             }
-            other => panic!("{other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
     }
 

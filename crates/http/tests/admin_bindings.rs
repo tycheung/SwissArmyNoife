@@ -49,7 +49,7 @@ async fn list_bindings_empty_and_populated() {
         .await
         .unwrap();
     let v: Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(v["bindings"].as_array().map(|a| a.len()), Some(0));
+    assert_eq!(v["bindings"].as_array().map(Vec::len), Some(0));
 
     let populated = app_with_state(state_with_binding());
     let resp = populated

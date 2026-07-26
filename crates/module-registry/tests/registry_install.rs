@@ -11,6 +11,7 @@ use tar::Builder;
 static LOCK: Mutex<()> = Mutex::new(());
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)] // process-wide CONFIG_DIR isolation for this suite
 async fn registry_download_install_invoke() {
     let _g = LOCK.lock().unwrap();
     let tmp = tempfile::tempdir().unwrap();

@@ -580,10 +580,10 @@ async fn stdio_capacity_probe_pressure_fit() -> Result<(), Box<dyn std::error::E
             arguments: Some(obj(json!({ "binding_id": pressure_id }))),
         })
         .await?;
-    let prtext = tool_text(&pressured);
+    let pressured_text = tool_text(&pressured);
     assert!(
-        prtext.contains("\"status\":\"ok\"") && prtext.contains("admit"),
-        "pressure={prtext}"
+        pressured_text.contains("\"status\":\"ok\"") && pressured_text.contains("admit"),
+        "pressure={pressured_text}"
     );
 
     let fit_bound = client
@@ -623,6 +623,7 @@ async fn stdio_capacity_probe_pressure_fit() -> Result<(), Box<dyn std::error::E
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn stdio_compute_node_work_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
     let bin = env!("CARGO_BIN_EXE_mcp");
     let tmp = tempfile::tempdir()?;
@@ -728,10 +729,10 @@ async fn stdio_compute_node_work_roundtrip() -> Result<(), Box<dyn std::error::E
             }))),
         })
         .await?;
-    let rqtext = tool_text(&requeued);
+    let requeued_text = tool_text(&requeued);
     assert!(
-        rqtext.contains("queued") || rqtext.contains("requeue"),
-        "{rqtext}"
+        requeued_text.contains("queued") || requeued_text.contains("requeue"),
+        "{requeued_text}"
     );
 
     let claimed2 = client

@@ -1,6 +1,7 @@
 # Generated / local
 /target/
 /target-alt/
+/target-ci/
 .run/
 .sak-run/
 **/*.rs.bk

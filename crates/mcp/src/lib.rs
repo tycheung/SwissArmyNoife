@@ -1,4 +1,4 @@
-//! SwissArmyNoife MCP library (stdio + Streamable HTTP binaries).
+//! `SwissArmyNoife` MCP library (stdio + Streamable HTTP binaries).
 
 pub mod capacity_fit;
 pub mod dispatch;

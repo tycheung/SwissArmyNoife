@@ -47,7 +47,6 @@ async fn get_module(Path(id): Path<String>) -> Result<Json<Value>, StatusCode> {
     })))
 }
 
-#[must_use]
 pub fn modules_router() -> Router<AppState> {
     Router::new()
         .route("/v1/sak/modules", get(list_modules))

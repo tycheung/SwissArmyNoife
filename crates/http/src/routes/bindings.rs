@@ -56,7 +56,6 @@ async fn get_binding(
     Ok(Json(json!(summary(record))))
 }
 
-#[must_use]
 pub fn bindings_router() -> Router<AppState> {
     Router::new()
         .route("/v1/sak/bindings", get(list_bindings))

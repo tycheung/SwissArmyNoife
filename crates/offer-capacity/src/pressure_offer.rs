@@ -138,7 +138,7 @@ mod tests {
             .await;
         match resp {
             InvokeResp::Error { code, .. } => assert_eq!(code, ErrorCode::BudgetExhausted),
-            other => panic!("expected deny, got {other:?}"),
+            other @ InvokeResp::Ok { .. } => panic!("expected deny, got {other:?}"),
         }
     }
 }

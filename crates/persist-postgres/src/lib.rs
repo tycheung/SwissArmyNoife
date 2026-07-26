@@ -3,6 +3,8 @@
 //! Enable `--features postgres` for deadpool connect, `V1_DDL` migrations, and live
 //! Catalog/Binding/Audit stores. Select at runtime with `SAK_PERSIST_BACKEND=postgres`.
 
+#![allow(clippy::doc_markdown)] // SQL sketch docs use snake_case bind names
+
 #[cfg(feature = "postgres")]
 mod backend;
 mod env;

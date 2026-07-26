@@ -51,6 +51,10 @@ pub fn forbidden_reason(from: &str, to: &str) -> Option<&'static str> {
         if to == "mcp" || to == "http" || to == "http-admin" || to.starts_with("mcp") {
             return Some("offer crates must not depend on mcp/http adapters");
         }
+        // sak240: research.fetch reuses egress HTTP gate helpers (not offer invoke glue).
+        if from == "offer-research" && to == "offer-egress" {
+            return None;
+        }
         if to.starts_with("offer-") && from != to {
             return Some("cross-offer dependencies are forbidden");
         }

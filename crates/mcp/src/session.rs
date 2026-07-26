@@ -16,7 +16,7 @@ pub fn bind_pack(
     offer_ids: &[String],
     principal: &Principal,
     ttl_secs: u64,
-    base_policy: Value,
+    base_policy: &Value,
 ) -> Result<Vec<(String, BindingId)>, ErrorCode> {
     let mut out = Vec::with_capacity(offer_ids.len());
     for raw in offer_ids {
@@ -54,7 +54,7 @@ mod tests {
             &["llm.chat".into(), "sandbox.exec".into()],
             &Principal::local(),
             60,
-            json!({}),
+            &json!({}),
         )
         .unwrap();
         assert_eq!(pack.len(), 2);

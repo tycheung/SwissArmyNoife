@@ -20,7 +20,7 @@ impl HardwareProbe for LocalSysProbe {
 
         let total_ram_mb = sys.total_memory() / (1024 * 1024);
         let available_ram_mb = sys.available_memory() / (1024 * 1024);
-        let cpu_logical = sys.cpus().len() as u32;
+        let cpu_logical = u32::try_from(sys.cpus().len()).unwrap_or(u32::MAX);
         let cpu_usage_pct = sys.global_cpu_usage();
 
         Ok(HardwareSnapshot {

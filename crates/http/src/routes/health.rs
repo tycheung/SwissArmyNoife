@@ -18,7 +18,6 @@ async fn sak_health() -> Json<Value> {
     }))
 }
 
-#[must_use]
 pub fn health_router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))

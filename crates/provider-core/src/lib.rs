@@ -89,6 +89,7 @@ mod tests {
                 }],
                 max_tokens: None,
                 temperature: None,
+                prompt_cache_key: None,
             })
             .await
             .expect("chat");

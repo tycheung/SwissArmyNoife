@@ -1,4 +1,4 @@
-//! OpenAPI stub presence (`sak323-a`).
+//! `OpenAPI` stub presence (`sak323-a`).
 
 #[test]
 fn sak_admin_openapi_stub_exists() {

@@ -55,6 +55,12 @@ pub struct McpServer {
     pub(crate) rate_limiter: Arc<std::sync::Mutex<RateLimiter>>,
 }
 
+impl Default for McpServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[tool_router]
 impl McpServer {
     /// Boot catalog, live offers, and workspace tools from process env.
@@ -64,6 +70,9 @@ impl McpServer {
     }
 
     /// Same as [`Self::new`] but shares the given API key store (HTTP auth).
+    ///
+    /// # Panics
+    /// Panics if live offers or catalog seed fail at boot (`expect` on env setup).
     #[must_use]
     pub fn with_api_keys(api_keys: Arc<ApiKeyStore>) -> Self {
         let offers = Arc::new(LiveOffers::from_env().expect("live offers boot"));
@@ -374,7 +383,7 @@ impl McpServer {
             &offer_ids,
             &principal,
             ttl_secs,
-            policy.clone(),
+            &policy,
         )
         .map_err(|code| McpError::invalid_params(format!("{code}: bind_pack failed"), None))?;
         drop(store);
@@ -551,7 +560,7 @@ impl McpServer {
 
     #[tool(description = "Read a file in the workspace jail (mode: full|outline|digest)")]
     async fn fs_read(&self, Parameters(args): Parameters<FsReadArgs>) -> Result<String, McpError> {
-        self.fs_read_inner(args).await
+        self.fs_read_inner(args)
     }
 
     #[tool(description = "Write a UTF-8 file in the workspace jail")]
@@ -559,17 +568,17 @@ impl McpServer {
         &self,
         Parameters(args): Parameters<FsWriteArgs>,
     ) -> Result<String, McpError> {
-        self.fs_write_inner(args).await
+        self.fs_write_inner(args)
     }
 
     #[tool(description = "Unique substring edit in a jailed file")]
     async fn fs_edit(&self, Parameters(args): Parameters<FsEditArgs>) -> Result<String, McpError> {
-        self.fs_edit_inner(args).await
+        self.fs_edit_inner(args)
     }
 
     #[tool(description = "Substring grep in a jailed file")]
     async fn fs_grep(&self, Parameters(args): Parameters<FsGrepArgs>) -> Result<String, McpError> {
-        self.fs_grep_inner(args).await
+        self.fs_grep_inner(args)
     }
 
     #[tool(description = "Run argv in the workspace jail via host shell runner")]
@@ -577,7 +586,7 @@ impl McpServer {
         &self,
         Parameters(args): Parameters<ShellExecArgs>,
     ) -> Result<String, McpError> {
-        self.shell_exec_inner(args).await
+        self.shell_exec_inner(args)
     }
 
     /// Typed invoke for `network.egress.check` (returns `InvokeResp` JSON).
@@ -659,7 +668,7 @@ impl McpServer {
         Ok(json!({ "modules": modules }).to_string())
     }
 
-    /// Invoke installed wasm `add` via ModuleRuntime cache (`sak366-b`).
+    /// Invoke installed wasm `add` via `ModuleRuntime` cache (`sak366-b`).
     #[tool(description = "Invoke installed wasm module add(a, b); returns {\"sum\": n}")]
     async fn module_invoke(
         &self,

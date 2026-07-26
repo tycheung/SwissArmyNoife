@@ -14,7 +14,7 @@ pub struct AppState {
     pub bindings: Arc<Mutex<BindingStore>>,
     pub catalog: Arc<Mutex<CatalogRegistry>>,
     pub invoke_count: Arc<Mutex<u64>>,
-    /// Lazy shared SQLite compute plane (`sak429-d`).
+    /// Lazy shared `SQLite` compute plane (`sak429-d`).
     pub compute_plane: Arc<OnceLock<Result<Arc<ComputePlane>, String>>>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
@@ -34,7 +34,7 @@ impl AppState {
         }
     }
 
-    /// Open (or reuse) the shared SQLite compute plane.
+    /// Open (or reuse) the shared `SQLite` compute plane.
     ///
     /// # Errors
     /// DB open/migrate failures.
@@ -73,6 +73,10 @@ impl AppState {
         }
     }
 
+    /// Snapshot meters for `/metrics`.
+    ///
+    /// # Panics
+    /// If an admin mutex is poisoned.
     #[must_use]
     pub fn meter_snapshot(&self) -> MeterSnapshot {
         let bindings = self.bindings.lock().expect("bindings lock");

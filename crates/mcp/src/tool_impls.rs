@@ -13,7 +13,7 @@ use serde_json::json;
 use types::OfferId;
 
 impl McpServer {
-    pub(crate) async fn fs_read_inner(&self, args: FsReadArgs) -> Result<String, McpError> {
+    pub(crate) fn fs_read_inner(&self, args: FsReadArgs) -> Result<String, McpError> {
         let FsReadArgs { path, mode } = args;
         let mode = parse_read_mode(mode.as_deref())?;
         let text = self.fs.read_mode(&path, mode).map_err(|e| fs_err(&e))?;
@@ -25,19 +25,19 @@ impl McpServer {
         .to_string())
     }
 
-    pub(crate) async fn fs_write_inner(&self, args: FsWriteArgs) -> Result<String, McpError> {
+    pub(crate) fn fs_write_inner(&self, args: FsWriteArgs) -> Result<String, McpError> {
         let FsWriteArgs { path, content } = args;
         self.fs.write(&path, &content).map_err(|e| fs_err(&e))?;
         Ok(json!({ "path": path, "written": true }).to_string())
     }
 
-    pub(crate) async fn fs_edit_inner(&self, args: FsEditArgs) -> Result<String, McpError> {
+    pub(crate) fn fs_edit_inner(&self, args: FsEditArgs) -> Result<String, McpError> {
         let FsEditArgs { path, old, new } = args;
         self.fs.edit(&path, &old, &new).map_err(|e| fs_err(&e))?;
         Ok(json!({ "path": path, "edited": true }).to_string())
     }
 
-    pub(crate) async fn fs_grep_inner(&self, args: FsGrepArgs) -> Result<String, McpError> {
+    pub(crate) fn fs_grep_inner(&self, args: FsGrepArgs) -> Result<String, McpError> {
         let FsGrepArgs { path, pattern } = args;
         let hits = self.fs.grep(&path, &pattern).map_err(|e| fs_err(&e))?;
         let hits: Vec<_> = hits
@@ -47,7 +47,7 @@ impl McpServer {
         Ok(json!({ "path": path, "hits": hits }).to_string())
     }
 
-    pub(crate) async fn shell_exec_inner(&self, args: ShellExecArgs) -> Result<String, McpError> {
+    pub(crate) fn shell_exec_inner(&self, args: ShellExecArgs) -> Result<String, McpError> {
         let ShellExecArgs { argv, cwd } = args;
         let out = self.shell.exec(argv, cwd).map_err(|e| shell_err(&e))?;
         Ok(json!({

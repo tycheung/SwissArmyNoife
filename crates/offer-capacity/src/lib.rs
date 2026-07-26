@@ -1,4 +1,4 @@
-//! SwissArmyNoife `capacity.*` helpers and offers (Phase 7).
+//! `SwissArmyNoife` `capacity.*` helpers and offers (Phase 7).
 
 mod fit;
 mod fit_offer;

@@ -1,4 +1,4 @@
-//! Compute work + nodes (`sak290-d` … `sak429-d` AppState ComputePlane).
+//! Compute work + nodes (`sak290-d` … `sak429-d` `AppState` `ComputePlane`).
 
 use std::time::Duration;
 
@@ -103,6 +103,7 @@ fn work_matches(
     true
 }
 
+#[allow(clippy::too_many_lines)]
 async fn work_action(
     State(state): State<AppState>,
     Json(body): Json<WorkActionBody>,
@@ -334,9 +335,9 @@ async fn node_action(
             Err(e) => Err(e),
         },
         "list" => {
-            let stale = body.stale_secs.map(Duration::from_secs);
+            let stale_after = body.stale_secs.map(Duration::from_secs);
             let session = body.session_id.clone().filter(|s| !s.is_empty());
-            reg.list_filtered(stale, session.as_deref())
+            reg.list_filtered(stale_after, session.as_deref())
                 .map(|nodes| {
                     json!({
                         "nodes": nodes,
@@ -355,7 +356,6 @@ async fn node_action(
     }
 }
 
-#[must_use]
 pub fn compute_router() -> Router<AppState> {
     Router::new()
         .route("/v1/sak/compute/work", get(list_work).post(work_action))
