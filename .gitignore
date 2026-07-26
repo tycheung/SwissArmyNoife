@@ -28,3 +28,6 @@ Thumbs.db
 # Node sdks (later)
 node_modules/
 dist/
+
+# Local toolchains (portable Go, etc.)
+.tools/
