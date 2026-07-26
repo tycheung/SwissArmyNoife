@@ -6,8 +6,8 @@ mod state;
 use axum::Router;
 
 pub use routes::{
-    audit_router, bindings_router, capacity_router, compute_router, connections_router,
-    health_router, metrics_router, modules_router,
+    audit_router, bindings_router, capacity_router, chat_completions_router, compute_router,
+    connections_router, health_router, metrics_router, modules_router,
 };
 pub use state::AppState;
 
@@ -27,5 +27,6 @@ pub fn app_with_state(state: AppState) -> Router {
         .merge(connections_router())
         .merge(audit_router())
         .merge(metrics_router())
+        .merge(chat_completions_router())
         .with_state(state)
 }

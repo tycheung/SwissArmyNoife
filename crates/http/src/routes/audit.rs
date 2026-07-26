@@ -57,8 +57,8 @@ pub fn audit_router() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::SystemTime;
     use control::{AuditLog, AuditStatus};
+    use std::time::SystemTime;
     use types::{BindingId, InvokeId, OfferId};
     use uuid::Uuid;
 

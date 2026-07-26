@@ -1,10 +1,14 @@
 //! HTTP admin shared state (`sak067-a` / `sak066-a` / sak070 Phase B / sak429-d / sak527-a).
 
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
-use control::{AuditLog, BindingStore, CatalogRegistry, MeterSnapshot};
+use control::{AuditLog, BindRequest, BindingStore, CatalogRegistry, MeterSnapshot, Principal};
 use offer_compute::ComputePlane;
+use offer_llm::{EchoChatProvider, LlmChatOffer};
 use rusqlite::Connection;
+use serde_json::json;
+use types::OfferId;
 use vault::VaultKey;
 
 #[cfg(feature = "postgres")]
@@ -28,24 +32,52 @@ pub struct AppState {
     pub vault: Option<Arc<VaultStore>>,
     /// Process-local invoke audit (`sak528-a`).
     pub audit: Arc<Mutex<AuditLog>>,
+    /// Echo-backed `llm.chat` for `OpenAI` facade (`sak540-b`).
+    pub llm: Arc<LlmChatOffer<EchoChatProvider>>,
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<PostgresCatalog>>,
 }
 
 impl AppState {
+    /// Build empty admin state with an echo `llm.chat` offer for the facade.
+    ///
+    /// # Panics
+    /// If `llm.chat` catalog construction fails (fixed id; should not happen).
     #[must_use]
     pub fn new() -> Self {
+        let llm =
+            Arc::new(LlmChatOffer::new(EchoChatProvider, Vec::new()).expect("llm.chat catalog id"));
+        let mut catalog = CatalogRegistry::new();
+        catalog.register_offer(llm.as_ref());
         Self {
             bindings: Arc::new(Mutex::new(BindingStore::new())),
-            catalog: Arc::new(Mutex::new(CatalogRegistry::new())),
+            catalog: Arc::new(Mutex::new(catalog)),
             invoke_count: Arc::new(Mutex::new(0)),
             compute_plane: Arc::new(OnceLock::new()),
             vault: None,
             audit: Arc::new(Mutex::new(AuditLog::new())),
+            llm,
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }
+    }
+
+    /// Create a short-lived `llm.chat` binding (tests / local facade demos).
+    ///
+    /// # Panics
+    /// If the bindings mutex is poisoned.
+    #[must_use]
+    pub fn bind_llm_chat_for_test(&self, ttl_secs: u64) -> types::BindingId {
+        let mut store = self.bindings.lock().expect("bindings lock");
+        store
+            .bind(BindRequest {
+                offer_id: OfferId::new("llm.chat").expect("valid"),
+                principal: Principal::local(),
+                policy_json: json!({}),
+                ttl: Duration::from_secs(ttl_secs.max(1)),
+            })
+            .binding_id
     }
 
     /// Open (or reuse) the shared `SQLite` compute plane.

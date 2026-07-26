@@ -30,4 +30,5 @@ fn sak_admin_openapi_stub_exists() {
     assert!(text.contains("/v1/sak/metrics"));
     assert!(text.contains("/v1/sak/metrics/prometheus"));
     assert!(text.contains("/metrics"));
+    assert!(text.contains("/v1/chat/completions"));
 }

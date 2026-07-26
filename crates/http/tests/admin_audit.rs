@@ -2,7 +2,7 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use control::{AuditStatus};
+use control::AuditStatus;
 use http_admin::{app_with_state, AppState};
 use serde_json::{json, Value};
 use tower::ServiceExt;

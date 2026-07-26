@@ -361,6 +361,36 @@ paths:
             text/plain:
               schema:
                 type: string
+  /v1/chat/completions:
+    post:
+      operationId: chatCompletions
+      summary: OpenAI-shaped chat facade over a pre-bound llm.chat (`sak540-b`)
+      description: >
+        Requires `binding_id` (body or `X-Sak-Binding-Id`). `stream=true` is rejected in v0.
+        Tools round-trip is sak540-c.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                binding_id:
+                  type: string
+                messages:
+                  type: array
+                  items:
+                    type: object
+                model:
+                  type: string
+                stream:
+                  type: boolean
+      responses:
+        "200":
+          description: OpenAI-ish chat.completion
+        "400":
+          description: Invalid request / stream not supported / wrong offer
 
 components:
   responses:
