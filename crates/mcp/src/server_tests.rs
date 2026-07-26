@@ -60,9 +60,10 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v18"));
+    assert!(text.contains("v19"));
     assert!(text.contains("connections_list"));
     assert!(text.contains("audit_query"));
+    assert!(text.contains("rate_limit_status"));
 }
 
 #[tokio::test]
@@ -107,6 +108,20 @@ async fn audit_query_returns_redacted_events() {
         .unbind(Parameters(UnbindArgs { binding_id }))
         .await
         .expect("unbind");
+}
+
+#[tokio::test]
+async fn rate_limit_status_reports_unlimited_or_remaining() {
+    let (server, _tmp) = test_server();
+    let raw = server
+        .rate_limit_status(Parameters(crate::tool_args::RateLimitStatusArgs {
+            principal: Some("local".into()),
+        }))
+        .await
+        .expect("status");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert_eq!(v["principal"], "local");
+    assert!(v["unlimited"].as_bool().is_some());
 }
 
 #[tokio::test]

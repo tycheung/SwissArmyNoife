@@ -18,6 +18,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "catalog_get",
     "connections_list",
     "audit_query",
+    "rate_limit_status",
     "provision",
     "bind",
     "unbind",
@@ -105,6 +106,15 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         "connections",
     );
     assert_contains(&call(&client, "audit_query", json!({})).await?, "events");
+    assert_contains(
+        &call(
+            &client,
+            "rate_limit_status",
+            json!({ "principal": "local" }),
+        )
+        .await?,
+        "principal",
+    );
     assert_contains(
         &call(
             &client,

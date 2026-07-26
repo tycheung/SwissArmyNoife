@@ -279,6 +279,13 @@ pub(crate) struct AuditQueryArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct RateLimitStatusArgs {
+    /// Principal to inspect (default `local`).
+    #[serde(default)]
+    pub principal: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MemoryIndexArgs {
     /// Binding id from `bind` for `memory.index`.
     pub binding_id: String,

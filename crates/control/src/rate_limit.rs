@@ -88,6 +88,44 @@ impl RateLimiter {
     pub fn deny_message() -> String {
         format!("{}: rate_limit exceeded", ErrorCode::PolicyDenied.as_str())
     }
+
+    /// Snapshot remaining tokens for `principal` (refills; does not consume).
+    #[must_use]
+    pub fn status(&mut self, principal: &str) -> RateLimitStatus {
+        if self.unlimited {
+            return RateLimitStatus {
+                principal: principal.to_owned(),
+                unlimited: true,
+                remaining: f64::INFINITY,
+                burst: 0.0,
+            };
+        }
+        let now = Instant::now();
+        let burst = self.burst;
+        let refill = self.refill_per_sec;
+        let bucket = self.buckets.entry(principal.to_owned()).or_insert(Bucket {
+            tokens: burst,
+            last: now,
+        });
+        let elapsed = now.duration_since(bucket.last).as_secs_f64();
+        bucket.tokens = (bucket.tokens + elapsed * refill).min(burst);
+        bucket.last = now;
+        RateLimitStatus {
+            principal: principal.to_owned(),
+            unlimited: false,
+            remaining: bucket.tokens,
+            burst,
+        }
+    }
+}
+
+/// Per-principal rate-limit snapshot (`sak528-c`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateLimitStatus {
+    pub principal: String,
+    pub unlimited: bool,
+    pub remaining: f64,
+    pub burst: f64,
 }
 
 #[cfg(test)]
@@ -128,6 +166,18 @@ mod tests {
         assert_eq!(lim.check("alice"), Err(ErrorCode::PolicyDenied));
         std::thread::sleep(Duration::from_millis(600));
         lim.check("alice").expect("refilled");
+    }
+
+    #[test]
+    fn status_reports_remaining_without_consume() {
+        let mut lim = RateLimiter::with_per_min(5.0);
+        lim.check("alice").expect("1");
+        let s = lim.status("alice");
+        assert!(!s.unlimited);
+        assert!((s.remaining - 4.0).abs() < 0.01);
+        assert!((s.burst - 5.0).abs() < 0.01);
+        let s2 = lim.status("alice");
+        assert!((s2.remaining - 4.0).abs() < 0.01);
     }
 
     #[test]

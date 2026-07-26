@@ -32,6 +32,6 @@ pub use policy::PolicyEngine;
 pub use policy_templates::{list_template_names, resolve_policy};
 pub use principal::{Principal, PrincipalKind};
 pub use provision::{ProvisionStore, ResourceRecord, ResourceState};
-pub use rate_limit::RateLimiter;
+pub use rate_limit::{RateLimitStatus, RateLimiter};
 pub use risk::{RiskCaps, RiskLedger, RiskUsage};
 pub use trace::invoke_span;

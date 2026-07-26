@@ -11,9 +11,9 @@ use crate::tool_args::{
     CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs,
     FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs,
     LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs,
-    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs,
-    SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs,
-    ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
+    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs, ResearchBriefArgs,
+    ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs,
+    TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 use crate::util::{expires_unix, parse_binding_id, serialize_resp};
 use crate::workspace_tools::boot_fs_shell;
@@ -29,7 +29,7 @@ use rmcp::{
     service::RequestContext,
     tool, tool_handler, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use types::OfferId;
 
@@ -186,6 +186,27 @@ impl McpServer {
             })
             .collect();
         Ok(json!({ "events": events }).to_string())
+    }
+
+    /// Per-principal rate-limit remaining tokens (`sak528-c`).
+    #[tool(description = "Rate-limit status for a principal (remaining tokens; no consume)")]
+    async fn rate_limit_status(
+        &self,
+        Parameters(args): Parameters<RateLimitStatusArgs>,
+    ) -> Result<String, McpError> {
+        let principal = args.principal.unwrap_or_else(|| "local".into());
+        let mut lim = self
+            .rate_limiter
+            .lock()
+            .map_err(|_| McpError::internal_error("rate limiter lock", None))?;
+        let s = lim.status(&principal);
+        Ok(json!({
+            "principal": s.principal,
+            "unlimited": s.unlimited,
+            "remaining": if s.unlimited { Value::Null } else { json!(s.remaining) },
+            "burst": s.burst,
+        })
+        .to_string())
     }
 
     /// Fetch one offer by id (`catalog.get`).
@@ -850,7 +871,7 @@ impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "SwissArmyNoife capability broker v18 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
+                "SwissArmyNoife capability broker v19 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, rate_limit_status, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()

@@ -8,9 +8,9 @@ use crate::tool_args::{
     CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs, FsEditArgs,
     FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs, LlmEmbedArgs,
     LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs,
-    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, ResearchBriefArgs, ResearchFetchArgs,
-    SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs,
-    ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
+    ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs, ResearchBriefArgs,
+    ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs, ShellExecArgs,
+    TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -19,6 +19,7 @@ pub fn tool_input_schemas() -> Value {
     let mut m = Map::new();
     insert::<CatalogGetArgs>(&mut m, "catalog_get");
     insert::<AuditQueryArgs>(&mut m, "audit_query");
+    insert::<RateLimitStatusArgs>(&mut m, "rate_limit_status");
     insert::<ProvisionArgs>(&mut m, "provision");
     insert::<BindArgs>(&mut m, "bind");
     insert::<UnbindArgs>(&mut m, "unbind");
@@ -121,6 +122,10 @@ mod tests {
         assert!(
             doc["tools"]["audit_query"].is_object(),
             "sak528-b audit_query schema"
+        );
+        assert!(
+            doc["tools"]["rate_limit_status"].is_object(),
+            "sak528-c rate_limit_status schema"
         );
     }
 }
