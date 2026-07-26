@@ -28,4 +28,6 @@ fn sak_admin_openapi_stub_exists() {
     assert!(text.contains("/v1/sak/connections/{id}"));
     assert!(text.contains("/v1/sak/audit"));
     assert!(text.contains("/v1/sak/metrics"));
+    assert!(text.contains("/v1/sak/metrics/prometheus"));
+    assert!(text.contains("/metrics"));
 }

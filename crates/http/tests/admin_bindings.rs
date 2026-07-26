@@ -127,3 +127,26 @@ async fn metrics_jsonl_export() {
     assert!(text.contains("\"invokes_total\""));
     assert!(text.contains("\"value\":7"));
 }
+
+#[tokio::test]
+async fn metrics_prometheus_export() {
+    let state = AppState::new();
+    *state.invoke_count.lock().expect("lock") = 7;
+    let app = app_with_state(state);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(text.contains("# TYPE sak_invokes_total counter"));
+    assert!(text.contains("sak_invokes_total 7"));
+}

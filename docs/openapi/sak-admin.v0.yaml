@@ -339,6 +339,28 @@ paths:
             application/x-ndjson:
               schema:
                 type: string
+  /v1/sak/metrics/prometheus:
+    get:
+      operationId: metricsPrometheus
+      summary: Broker counters as Prometheus text (`sak528-d`)
+      responses:
+        "200":
+          description: Prometheus exposition format
+          content:
+            text/plain:
+              schema:
+                type: string
+  /metrics:
+    get:
+      operationId: metricsPrometheusRoot
+      summary: Prometheus scrape alias for `/v1/sak/metrics/prometheus`
+      responses:
+        "200":
+          description: Prometheus exposition format
+          content:
+            text/plain:
+              schema:
+                type: string
 
 components:
   responses:
