@@ -17,14 +17,29 @@ const ORDER_KEY: &str = "sak:work:order";
 /// Minimal Redis hash/list ops used by [`RedisQueue`].
 pub trait RedisBackend: Send + Sync {
     /// `HSET key field value`
+    ///
+    /// # Errors
+    /// Backend lock or transport failures.
     fn hset(&self, key: &str, field: &str, value: &str) -> Result<(), ErrorCode>;
     /// `HGET key field`
+    ///
+    /// # Errors
+    /// Backend lock or transport failures.
     fn hget(&self, key: &str, field: &str) -> Result<Option<String>, ErrorCode>;
     /// `HGETALL key`
+    ///
+    /// # Errors
+    /// Backend lock or transport failures.
     fn hgetall(&self, key: &str) -> Result<Vec<(String, String)>, ErrorCode>;
     /// `RPUSH key value`
+    ///
+    /// # Errors
+    /// Backend lock or transport failures.
     fn rpush(&self, key: &str, value: &str) -> Result<(), ErrorCode>;
     /// `LRANGE key 0 -1`
+    ///
+    /// # Errors
+    /// Backend lock or transport failures.
     fn lrange_all(&self, key: &str) -> Result<Vec<String>, ErrorCode>;
 }
 
@@ -83,7 +98,7 @@ impl RedisBackend for FakeRedis {
 /// Work queue persisted in Redis hashes/lists (or [`FakeRedis`]).
 pub struct RedisQueue {
     backend: Box<dyn RedisBackend>,
-    /// Serializes claim/complete (FakeRedis is not multi-key atomic).
+    /// Serializes claim/complete (`FakeRedis` is not multi-key atomic).
     lock: Mutex<()>,
 }
 

@@ -1,4 +1,4 @@
-//! SwissArmyNoife `compute.*` mesh (nodes + work queue).
+//! `SwissArmyNoife` `compute.*` mesh (nodes + work queue).
 
 mod memory_queue;
 mod merge;

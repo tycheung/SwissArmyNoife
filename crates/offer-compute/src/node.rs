@@ -54,9 +54,12 @@ pub struct NodeRecord {
     pub session_id: Option<String>,
 }
 
-/// Port for memory / SQLite node registries (`sak426-a`).
+/// Port for memory / `SQLite` node registries (`sak426-a`).
 pub trait NodeStore: Send + Sync {
     /// Register without session scope.
+    ///
+    /// # Errors
+    /// Store lock or persistence failures.
     fn register(
         &self,
         label: &str,
@@ -65,6 +68,9 @@ pub trait NodeStore: Send + Sync {
     ) -> Result<NodeRecord, ErrorCode>;
 
     /// Register with optional session scope.
+    ///
+    /// # Errors
+    /// Store lock or persistence failures.
     fn register_scoped(
         &self,
         label: &str,
@@ -74,12 +80,21 @@ pub trait NodeStore: Send + Sync {
     ) -> Result<NodeRecord, ErrorCode>;
 
     /// Touch heartbeat for an existing node.
+    ///
+    /// # Errors
+    /// Unknown node or store failure.
     fn heartbeat(&self, id: NodeId) -> Result<NodeRecord, ErrorCode>;
 
     /// List nodes; optionally drop those older than `stale_after`.
+    ///
+    /// # Errors
+    /// Store lock or persistence failures.
     fn list(&self, stale_after: Option<Duration>) -> Result<Vec<NodeRecord>, ErrorCode>;
 
     /// List nodes with optional session filter.
+    ///
+    /// # Errors
+    /// Store lock or persistence failures.
     fn list_filtered(
         &self,
         stale_after: Option<Duration>,
@@ -119,7 +134,7 @@ impl NodeStore for NodeRegistry {
     ) -> Result<NodeRecord, ErrorCode> {
         let now = unix_now();
         let mut map = self.nodes.lock().map_err(|_| ErrorCode::SchemaInvalid)?;
-        let id = id.unwrap_or_else(NodeId::new);
+        let id = id.unwrap_or_default();
         let session_id = session_id.filter(|s| !s.is_empty());
         let record = NodeRecord {
             id,

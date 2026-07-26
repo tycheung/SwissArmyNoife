@@ -61,7 +61,7 @@ impl NodeStore for SqliteNodeRegistry {
         session_id: Option<String>,
     ) -> Result<NodeRecord, ErrorCode> {
         let now = unix_now();
-        let id = id.unwrap_or_else(NodeId::new);
+        let id = id.unwrap_or_default();
         let session_id = session_id.filter(|s| !s.is_empty());
         let record = NodeRecord {
             id,
@@ -85,7 +85,7 @@ impl NodeStore for SqliteNodeRegistry {
                 record.id.to_string(),
                 record.label,
                 caps_json,
-                now as i64,
+                i64::try_from(now).unwrap_or(i64::MAX),
                 session_id,
             ],
         )
@@ -99,7 +99,7 @@ impl NodeStore for SqliteNodeRegistry {
         let n = conn
             .execute(
                 "UPDATE compute_nodes SET last_heartbeat_unix = ?1 WHERE id = ?2",
-                params![now as i64, id.to_string()],
+                params![i64::try_from(now).unwrap_or(i64::MAX), id.to_string()],
             )
             .map_err(|_| ErrorCode::SchemaInvalid)?;
         if n == 0 {
@@ -135,7 +135,7 @@ impl NodeStore for SqliteNodeRegistry {
         let mut out = Vec::new();
         for row in rows {
             let (id, label, caps_json, hb, session) = row.map_err(|_| ErrorCode::SchemaInvalid)?;
-            let rec = row_to_record(id, label, caps_json, hb, session)?;
+            let rec = row_to_record(&id, label, &caps_json, hb, session)?;
             if let Some(d) = stale_after {
                 if now.saturating_sub(rec.last_heartbeat_unix) > d.as_secs() {
                     continue;
@@ -165,24 +165,24 @@ fn load_node(conn: &Connection, id: NodeId) -> Result<NodeRecord, ErrorCode> {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .map_err(|_| ErrorCode::OfferNotFound)?;
-    row_to_record(row.0, row.1, row.2, row.3, row.4)
+    row_to_record(&row.0, row.1, &row.2, row.3, row.4)
 }
 
 fn row_to_record(
-    id: String,
+    id: &str,
     label: String,
-    caps_json: String,
+    caps_json: &str,
     hb: i64,
     session: Option<String>,
 ) -> Result<NodeRecord, ErrorCode> {
-    let uuid = Uuid::parse_str(&id).map_err(|_| ErrorCode::SchemaInvalid)?;
+    let uuid = Uuid::parse_str(id).map_err(|_| ErrorCode::SchemaInvalid)?;
     let caps: Vec<String> =
-        serde_json::from_str(&caps_json).map_err(|_| ErrorCode::SchemaInvalid)?;
+        serde_json::from_str(caps_json).map_err(|_| ErrorCode::SchemaInvalid)?;
     Ok(NodeRecord {
         id: NodeId::from_uuid(uuid),
         label,
         caps,
-        last_heartbeat_unix: hb as u64,
+        last_heartbeat_unix: u64::try_from(hb).unwrap_or(0),
         session_id: session.filter(|s| !s.is_empty()),
     })
 }

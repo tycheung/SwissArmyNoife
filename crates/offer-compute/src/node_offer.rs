@@ -150,7 +150,7 @@ mod tests {
             .await;
         match resp {
             InvokeResp::Ok { result, .. } => assert_eq!(result["label"], "w1"),
-            other => panic!("{other:?}"),
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
     }
 }

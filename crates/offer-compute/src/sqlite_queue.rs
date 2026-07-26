@@ -74,7 +74,7 @@ impl WorkQueue for SqliteQueue {
                 unit.kind,
                 unit.payload.to_string(),
                 unit.status.as_str(),
-                now as i64,
+                i64::try_from(now).unwrap_or(i64::MAX),
                 seq,
             ],
         )
@@ -166,7 +166,7 @@ impl WorkQueue for SqliteQueue {
             )
             .map_err(|_| ErrorCode::SchemaInvalid)?;
         let rows = stmt
-            .query_map(params![limit as i64], |r| {
+            .query_map(params![i64::try_from(limit).unwrap_or(i64::MAX)], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, String>(1)?,

@@ -37,7 +37,7 @@ impl ComputePlane {
         }
     }
 
-    /// SQLite durable nodes + queue (`sak291-c` / `sak425-a` / `sak426-b`).
+    /// `SQLite` durable nodes + queue (`sak291-c` / `sak425-a` / `sak426-b`).
     ///
     /// # Errors
     /// DB open/migrate failures.
@@ -57,7 +57,7 @@ impl ComputePlane {
         Self::with_sqlite_queue(&persist_sqlite::db_path())
     }
 
-    /// Redis / FakeRedis queue with durable sqlite nodes when possible (`sak427-e`).
+    /// Redis / `FakeRedis` queue with durable sqlite nodes when possible (`sak427-e`).
     #[must_use]
     pub fn with_redis_queue(queue: RedisQueue) -> Self {
         let nodes: Arc<dyn NodeStore> = match SqliteNodeRegistry::open_default() {
@@ -74,7 +74,10 @@ impl ComputePlane {
     /// `COMPUTE_QUEUE=sqlite|redis|memory` — default **sqlite** (`sak427-b`).
     ///
     /// Redis: `REDIS_URL` + `--features redis` → live; else in-process [`RedisQueue::fake`].
-    /// SQLite: durable nodes + queue share `broker.db` with HTTP admin.
+    /// `SQLite`: durable nodes + queue share `broker.db` with HTTP admin.
+    ///
+    /// # Errors
+    /// Backend open/migrate failures for the selected queue mode.
     pub fn from_env() -> Result<Self, ErrorCode> {
         let mode = std::env::var("COMPUTE_QUEUE").unwrap_or_else(|_| "sqlite".into());
         if mode.eq_ignore_ascii_case("memory") {

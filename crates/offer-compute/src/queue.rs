@@ -89,15 +89,24 @@ pub struct WorkUnit {
     pub result: Option<Value>,
 }
 
-/// Port for memory / SQLite / Redis queues (`refactor:work-queue-trait`).
+/// Port for memory / `SQLite` / Redis queues (`refactor:work-queue-trait`).
 pub trait WorkQueue: Send + Sync {
     /// Enqueue after sanitizing payload.
+    ///
+    /// # Errors
+    /// Queue lock or persistence failures.
     fn enqueue(&self, kind: &str, payload: Value) -> Result<WorkUnit, ErrorCode>;
 
     /// Claim oldest queued unit.
+    ///
+    /// # Errors
+    /// Empty queue (`OfferNotFound`) or store failure.
     fn claim(&self, node: NodeId) -> Result<WorkUnit, ErrorCode>;
 
     /// Complete a claimed unit via merge hook.
+    ///
+    /// # Errors
+    /// Wrong claimer / status (`PolicyDenied`) or store failure.
     fn complete(
         &self,
         work_id: WorkId,
@@ -107,11 +116,20 @@ pub trait WorkQueue: Send + Sync {
     ) -> Result<WorkUnit, ErrorCode>;
 
     /// Fetch one unit.
+    ///
+    /// # Errors
+    /// Missing unit or store failure.
     fn get(&self, work_id: WorkId) -> Result<WorkUnit, ErrorCode>;
 
     /// List newest-first (cap `limit`).
+    ///
+    /// # Errors
+    /// Queue lock or persistence failures.
     fn list(&self, limit: usize) -> Result<Vec<WorkUnit>, ErrorCode>;
 
     /// Reset a claimed (or failed) unit back to queued (`sak428-c`).
+    ///
+    /// # Errors
+    /// Missing unit, invalid status, or store failure.
     fn requeue(&self, work_id: WorkId) -> Result<WorkUnit, ErrorCode>;
 }

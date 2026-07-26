@@ -2,6 +2,7 @@ package com.swissarmynoife.sdk;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 
@@ -28,21 +29,27 @@ class SakMcpClientTest {
           String raw = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
           Map<String, Object> body = GSON.fromJson(raw, MAP_TYPE);
           String method = String.valueOf(body.get("method"));
-          if ("initialize".equals(method)) {
-            writeJson(exchange, 200, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}", "sess-java-1");
-          } else if ("notifications/initialized".equals(method)) {
-            exchange.sendResponseHeaders(202, -1);
-            exchange.close();
-          } else if ("tools/call".equals(method)) {
-            assertEquals("sess-java-1", exchange.getRequestHeaders().getFirst("mcp-session-id"));
-            writeJson(
-                exchange,
-                200,
-                "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"pong\"}]}}",
-                null);
-          } else {
-            exchange.sendResponseHeaders(500, -1);
-            exchange.close();
+          switch (method) {
+            case "initialize" ->
+                writeJson(exchange, 200, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}", "sess-java-1");
+            case "notifications/initialized" -> {
+              try (HttpExchange ignored = exchange) {
+                exchange.sendResponseHeaders(202, -1);
+              }
+            }
+            case "tools/call" -> {
+              assertEquals("sess-java-1", exchange.getRequestHeaders().getFirst("mcp-session-id"));
+              writeJson(
+                  exchange,
+                  200,
+                  "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"pong\"}]}}",
+                  null);
+            }
+            default -> {
+              try (HttpExchange ignored = exchange) {
+                exchange.sendResponseHeaders(500, -1);
+              }
+            }
           }
         });
     server.start();
@@ -87,17 +94,19 @@ class SakMcpClientTest {
           String raw = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
           Map<String, Object> body = GSON.fromJson(raw, MAP_TYPE);
           String method = String.valueOf(body.get("method"));
-          if ("initialize".equals(method)) {
-            writeJson(exchange, 200, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}", "s2");
-          } else if ("notifications/initialized".equals(method)) {
-            exchange.sendResponseHeaders(202, -1);
-            exchange.close();
-          } else {
-            writeJson(
-                exchange,
-                200,
-                "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"offers\":[]}}",
-                null);
+          switch (method) {
+            case "initialize" -> writeJson(exchange, 200, "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}", "s2");
+            case "notifications/initialized" -> {
+              try (HttpExchange ignored = exchange) {
+                exchange.sendResponseHeaders(202, -1);
+              }
+            }
+            default ->
+                writeJson(
+                    exchange,
+                    200,
+                    "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"offers\":[]}}",
+                    null);
           }
         });
     server.start();
@@ -111,8 +120,7 @@ class SakMcpClientTest {
     }
   }
 
-  private static void writeJson(
-      com.sun.net.httpserver.HttpExchange exchange, int code, String json, String session)
+  private static void writeJson(HttpExchange exchange, int code, String json, String session)
       throws IOException {
     if (session != null) {
       exchange.getResponseHeaders().add("mcp-session-id", session);
