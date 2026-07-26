@@ -43,3 +43,8 @@ sdks/csharp/**/obj/
 # Ruby SDK
 sdks/ruby/vendor/
 sdks/ruby/.bundle/
+
+# Kotlin SDK
+sdks/kotlin/.gradle/
+sdks/kotlin/build/
+sdks/kotlin/.kotlin/
