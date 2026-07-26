@@ -66,6 +66,16 @@ impl SakClient {
         assert_capacity_ok(&raw) // sak486-i / sak493-h
     }
 
+    /// `POST /v1/chat/completions` — OpenAI-shaped facade over `llm.chat` / `tools.loop` (`sak545-a`).
+    ///
+    /// Caller supplies a pre-bound `binding_id` (or `tools_binding_id` for tool_calls).
+    ///
+    /// # Errors
+    /// Transport / non-success / JSON parse.
+    pub async fn chat_completions(&self, body: Value) -> Result<Value, SdkError> {
+        self.post_json("/v1/chat/completions", body).await
+    }
+
     /// `GET /v1/sak/compute/work`
     ///
     /// # Errors
