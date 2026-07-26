@@ -52,3 +52,6 @@ sdks/kotlin/.kotlin/
 # PHP SDK
 sdks/php/vendor/
 sdks/php/.phpunit.result.cache
+
+# C++ SDK
+sdks/cpp/build/
