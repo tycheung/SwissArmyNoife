@@ -27,6 +27,10 @@ jobs:
         run: cargo run -q -p xtask -- boundaries
       - name: conformance pack (sak529-b)
         run: cargo run -q -p xtask -- conformance
+      - name: http-admin facade tests (sak549-a)
+        run: |
+          cargo test -p http-admin --test admin_chat_completions --test admin_auth
+          cargo test -p http-admin --lib openai_errors::
       - name: schema export --check (sak530-b)
         run: cargo run -q -p xtask -- schema export --check
       - name: Install cargo-deny
