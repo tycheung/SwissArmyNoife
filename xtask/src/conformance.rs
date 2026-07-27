@@ -1,6 +1,6 @@
-//! Unified conformance pack runner (`sak529-a`).
+//! Unified conformance pack runner (`sak529-a` / facade smoke `sak549-b`).
 //!
-//! One command: MCP conformance fixtures + offer golden crates.
+//! One command: MCP conformance fixtures + offer golden crates + HTTP facade smoke.
 
 use std::process::{Command, ExitStatus};
 
@@ -13,6 +13,7 @@ pub const PACK: &[(&str, &str)] = &[
     ("offer-egress", "golden_egress"),
     ("offer-eval", "golden_eval"),
     ("types", "offer_fixtures"),
+    ("http-admin", "admin_chat_completions"),
 ];
 
 /// Run the pack from the workspace root (`SwissArmyNoife/`).
@@ -53,6 +54,9 @@ mod tests {
             .iter()
             .any(|(p, t)| *p == "mcp" && *t == "conformance_fixture"));
         assert!(PACK.iter().any(|(p, _)| *p == "offer-llm"));
+        assert!(PACK
+            .iter()
+            .any(|(p, t)| *p == "http-admin" && *t == "admin_chat_completions"));
         assert!(PACK.len() >= 5);
     }
 }
