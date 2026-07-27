@@ -1,6 +1,6 @@
 # C# SDK (`sak332`)
 
-.NET 8 library `SwissArmyNoife.Sdk` — HTTP admin (`SakClient`) and Streamable HTTP MCP
+.NET 8 library `SwissArmyNoife.Sdk` â€” HTTP admin (`SakClient`) and Streamable HTTP MCP
 (`SakMcpClient`) for SwissArmyNoife.
 
 ## Build / test
