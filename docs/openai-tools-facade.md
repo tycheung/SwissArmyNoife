@@ -121,3 +121,15 @@ JSON errors use OpenAI-ish `{ "error": { "message", "type", "code" } }` (no secr
 
 OpenAPI stub: [`docs/openapi/sak-admin.v0.yaml`](openapi/sak-admin.v0.yaml) path
 `/v1/chat/completions`.
+
+## CI / conformance (`sak549`)
+
+Broker CI runs focused facade tests (`admin_chat_completions`, `admin_auth`,
+`openai_errors`). The unified pack also includes facade smoke:
+
+```bash
+cargo run -q -p xtask -- conformance
+```
+
+See [`conformance-pack.md`](conformance-pack.md). Secrets must never appear in facade
+JSON/SSE error bodies (vault redaction / error framing invariants unchanged).
