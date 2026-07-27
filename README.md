@@ -37,6 +37,8 @@ More: [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md).
 | Topic | Where |
 |-------|--------|
 | MCP setup (any client) | [docs/mcp-setup.md](docs/mcp-setup.md) |
+| Harness conformance pack | [docs/conformance-pack.md](docs/conformance-pack.md) |
+| OpenAI chat/tools facade | [docs/openai-tools-facade.md](docs/openai-tools-facade.md) |
 | Example client configs | [examples/](examples/) |
 | Control coverage | [docs/control-coverage.md](docs/control-coverage.md) |
 

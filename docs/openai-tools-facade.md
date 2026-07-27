@@ -1,4 +1,4 @@
-# OpenAI-tools facade (`sak540` / polish `sak541–548`)
+# OpenAI-tools facade (`sak540` / polish `sak541–549`)
 
 Design: Agentic [`docs/adr/011-openai-tools-facade.md`](../../docs/adr/011-openai-tools-facade.md).
 
