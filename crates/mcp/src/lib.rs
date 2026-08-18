@@ -6,6 +6,7 @@ pub mod echo_offer;
 pub mod health_snap;
 pub mod http_auth;
 pub mod live;
+pub mod live_sandbox;
 pub mod progress;
 pub mod resources;
 pub mod schema_json;
