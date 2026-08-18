@@ -247,6 +247,44 @@ async fn bind_invoke_llm_embed_echo_backend() {
 }
 
 #[tokio::test]
+async fn bind_invoke_llm_resolve_provider_hint() {
+    let (server, _tmp) = test_server();
+    let bound = server
+        .bind(Parameters(sample_bind("llm.resolve")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let raw = server
+        .llm_resolve(Parameters(crate::tool_args::LlmResolveArgs {
+            binding_id: binding_id.clone(),
+            connection_id: None,
+            provider: Some("ollama".into()),
+            model: Some("llama3".into()),
+        }))
+        .await
+        .expect("llm_resolve");
+    assert!(!raw.contains("sk-"), "no secrets: {raw}");
+    let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
+    match resp {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["resolved"]["provider"], "ollama");
+            assert_eq!(result["resolved"]["model"], "llama3");
+            assert_eq!(result["resolved"]["binding_source"], "local_ollama");
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
+    }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
 async fn bind_invoke_memory_embed_echo_backend() {
     let (server, _tmp) = test_server();
     let bound = server

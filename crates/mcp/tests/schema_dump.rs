@@ -20,6 +20,7 @@ const TOOL_NAMES: &[&str] = &[
     "invoke",
     "llm_chat",
     "llm_preflight",
+    "llm_resolve",
     "sandbox_exec",
     "fs_read",
     "memory_search",

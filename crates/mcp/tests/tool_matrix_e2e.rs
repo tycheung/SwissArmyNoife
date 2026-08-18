@@ -26,6 +26,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "invoke",
     "llm_chat",
     "llm_embed",
+    "llm_resolve",
     "llm_preflight",
     "ollama_manage",
     "llm_telemetry",

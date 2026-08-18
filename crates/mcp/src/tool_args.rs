@@ -104,6 +104,18 @@ pub(crate) struct LlmEmbedArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct LlmResolveArgs {
+    /// Binding id from `bind` for `llm.resolve`.
+    pub binding_id: String,
+    #[serde(default)]
+    pub connection_id: Option<String>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct LlmPreflightCandidateArg {
     pub id: String,
     pub ram_mb: u64,

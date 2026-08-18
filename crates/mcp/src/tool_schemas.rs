@@ -7,10 +7,11 @@ use crate::tool_args::{
     AuditQueryArgs, BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs,
     CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs,
     EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs,
-    LlmEmbedArgs, LlmPreflightArgs, MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs,
-    MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs, RateLimitStatusArgs,
-    ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs, SandboxJailArgs, SessionBindArgs,
-    ShellExecArgs, TelemetryArgs, ToolsLoopArgs, ToolsRegistryArgs, UnbindArgs,
+    LlmEmbedArgs, LlmPreflightArgs, LlmResolveArgs, MemoryEmbedArgs, MemoryIndexArgs,
+    MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs,
+    RateLimitStatusArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
+    SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs,
+    ToolsRegistryArgs, UnbindArgs,
 };
 
 /// Map of tool name → input JSON Schema object (draft 2020-12 via schemars).
@@ -27,6 +28,7 @@ pub fn tool_input_schemas() -> Value {
     insert::<InvokeArgs>(&mut m, "invoke");
     insert::<LlmChatToolArgs>(&mut m, "llm_chat");
     insert::<LlmEmbedArgs>(&mut m, "llm_embed");
+    insert::<LlmResolveArgs>(&mut m, "llm_resolve");
     insert::<LlmPreflightArgs>(&mut m, "llm_preflight");
     insert::<OllamaManageArgs>(&mut m, "ollama_manage");
     insert::<TelemetryArgs>(&mut m, "llm_telemetry");
@@ -95,6 +97,10 @@ mod tests {
         assert!(
             doc["tools"]["llm_embed"].is_object(),
             "sak523-b llm_embed schema"
+        );
+        assert!(
+            doc["tools"]["llm_resolve"].is_object(),
+            "sak576-a llm_resolve schema"
         );
         assert!(
             doc["tools"]["memory_embed"].is_object(),
