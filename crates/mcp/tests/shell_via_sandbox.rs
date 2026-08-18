@@ -54,3 +54,65 @@ async fn shell_exec_follows_stub_sandbox_backend() -> Result<(), Box<dyn std::er
     client.cancel().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn shell_exec_charges_shell_risk_cap() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_mcp");
+    let tmp = tempfile::tempdir()?;
+    let client = ()
+        .serve(TokioChildProcess::new(Command::new(bin).configure(|c| {
+            c.env("CONFIG_DIR", tmp.path())
+                .env("LLM_BACKEND", "echo")
+                .env("SANDBOX_BACKEND", "stub")
+                .env("CAPACITY_PROBE", "fake");
+        }))?)
+        .await?;
+
+    let bound = client
+        .call_tool(CallToolRequestParam {
+            name: "bind".into(),
+            arguments: Some(obj(json!({
+                "offer_id": "sandbox.exec",
+                "ttl_secs": 120,
+                "policy": { "risk_caps": { "max_shell_invocations": 1 } }
+            }))),
+        })
+        .await?;
+    let binding_id = serde_json::from_str::<Value>(&tool_text(&bound))?["binding_id"]
+        .as_str()
+        .expect("binding_id")
+        .to_owned();
+
+    let first = client
+        .call_tool(CallToolRequestParam {
+            name: "sandbox_exec".into(),
+            arguments: Some(obj(json!({
+                "binding_id": binding_id,
+                "argv": ["echo", "one"],
+                "cwd": "."
+            }))),
+        })
+        .await?;
+    let first_text = tool_text(&first);
+    assert!(
+        first_text.contains("\"status\":\"ok\""),
+        "first sandbox_exec={first_text}"
+    );
+
+    let second = client
+        .call_tool(CallToolRequestParam {
+            name: "shell_exec".into(),
+            arguments: Some(obj(json!({
+                "argv": ["echo", "two"],
+                "cwd": "."
+            }))),
+        })
+        .await?;
+    let second_text = tool_text(&second);
+    assert!(
+        second_text.contains("budget.exhausted") || second_text.contains("BudgetExhausted"),
+        "shell_exec should exhaust shared shell cap, got {second_text}"
+    );
+    client.cancel().await?;
+    Ok(())
+}
