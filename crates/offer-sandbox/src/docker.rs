@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::backend::{
-    reject_outside_argv_paths, validate_argv, ExecRequest, ExecResult, SandboxBackend, SandboxError,
+    reject_outside_argv_paths, validate_argv, wait_output_or_timeout, ExecRequest, ExecResult,
+    SandboxBackend, SandboxError, DEFAULT_EXEC_TIMEOUT,
 };
 use crate::mount_policy::{MountPolicyError, WorkspaceMountPolicy};
 use crate::{FilesystemJail, JailError};
@@ -136,15 +137,11 @@ impl SandboxBackend for DockerBackend {
 
 impl DockerBackend {
     fn spawn_docker(&self, args: &[String]) -> Result<ExecResult, SandboxError> {
-        let output = Command::new(&self.docker_bin)
-            .args(args)
-            .output()
-            .map_err(|e| SandboxError::Spawn(format!("docker: {e}")))?;
-        let exit_code = output.status.code().unwrap_or(-1);
-        Ok(ExecResult {
-            exit_code,
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        let mut cmd = Command::new(&self.docker_bin);
+        cmd.args(args);
+        wait_output_or_timeout(cmd, DEFAULT_EXEC_TIMEOUT).map_err(|e| match e {
+            SandboxError::Spawn(msg) => SandboxError::Spawn(format!("docker: {msg}")),
+            other => other,
         })
     }
 }

@@ -1,7 +1,9 @@
 //! Sandbox exec backends. `none` = host+jail; `stub` = no process spawn.
 
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use thiserror::Error;
 use types::ErrorCode;
@@ -34,6 +36,8 @@ pub enum SandboxError {
     SchemaInvalid(&'static str),
     #[error("sandbox.violation:{0}: {1}")]
     Violation(&'static str, String),
+    #[error("sandbox.violation:timeout: {0}")]
+    Timeout(String),
     #[error("sandbox.violation:spawn_failed: {0}")]
     Spawn(String),
 }
@@ -44,7 +48,7 @@ impl SandboxError {
         match self {
             Self::Jail(e) => e.to_error_code(),
             Self::SchemaInvalid(_) => ErrorCode::SchemaInvalid,
-            Self::Violation(..) => ErrorCode::SandboxViolation,
+            Self::Violation(..) | Self::Timeout(_) => ErrorCode::SandboxViolation,
             Self::Spawn(_) => ErrorCode::ProviderUnreachable,
         }
     }
@@ -71,6 +75,47 @@ pub trait SandboxBackend {
     ) -> Result<ExecResult, SandboxError> {
         let _ = mounts;
         self.exec(req)
+    }
+}
+
+pub(crate) const DEFAULT_EXEC_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Spawn `cmd` and wait up to `timeout`, killing the child on expiry.
+///
+/// # Errors
+/// Spawn failures or [`SandboxError::Timeout`] when the wall clock elapses.
+pub(crate) fn wait_output_or_timeout(
+    mut cmd: Command,
+    timeout: Duration,
+) -> Result<ExecResult, SandboxError> {
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| SandboxError::Spawn(e.to_string()))?;
+    let start = Instant::now();
+    loop {
+        match child
+            .try_wait()
+            .map_err(|e| SandboxError::Spawn(e.to_string()))?
+        {
+            Some(_) => {
+                let output = child
+                    .wait_with_output()
+                    .map_err(|e| SandboxError::Spawn(e.to_string()))?;
+                return Ok(ExecResult {
+                    exit_code: output.status.code().unwrap_or(-1),
+                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                    stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+                });
+            }
+            None if start.elapsed() >= timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(SandboxError::Timeout(format!("exceeded {timeout:?}")));
+            }
+            None => thread::sleep(Duration::from_millis(15)),
+        }
     }
 }
 
@@ -107,12 +152,23 @@ fn argv_token_needs_jail(token: &str) -> bool {
 #[derive(Clone, Debug)]
 pub struct NoneBackend {
     jail: FilesystemJail,
+    timeout: Duration,
 }
 
 impl NoneBackend {
     #[must_use]
     pub fn new(jail: FilesystemJail) -> Self {
-        Self { jail }
+        Self {
+            jail,
+            timeout: DEFAULT_EXEC_TIMEOUT,
+        }
+    }
+
+    /// Override the exec wall-clock timeout (tests / bind policy later).
+    #[must_use]
+    pub const fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
     }
 
     #[must_use]
@@ -145,15 +201,7 @@ impl SandboxBackend for NoneBackend {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
-        let output = cmd
-            .output()
-            .map_err(|e| SandboxError::Spawn(e.to_string()))?;
-        let exit_code = output.status.code().unwrap_or(-1);
-        Ok(ExecResult {
-            exit_code,
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        })
+        wait_output_or_timeout(cmd, self.timeout)
     }
 }
 
@@ -303,6 +351,32 @@ mod tests {
             })
             .expect_err("escape");
         assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+    }
+
+    #[test]
+    fn hung_child_times_out() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let backend = NoneBackend::with_root(tmp.path())
+            .expect("backend")
+            .with_timeout(Duration::from_millis(250));
+        let req = if cfg!(windows) {
+            ExecRequest {
+                argv: vec!["ping".into(), "-n".into(), "20".into(), "127.0.0.1".into()],
+                cwd: PathBuf::from("."),
+            }
+        } else {
+            ExecRequest {
+                argv: vec!["sleep".into(), "20".into()],
+                cwd: PathBuf::from("."),
+            }
+        };
+        let err = backend.exec(&req).expect_err("timeout");
+        assert!(
+            matches!(err, SandboxError::Timeout(_)),
+            "expected Timeout, got {err}"
+        );
+        assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+        assert!(err.to_string().contains("timeout"));
     }
 
     fn outside_argv_token() -> String {
