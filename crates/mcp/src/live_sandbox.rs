@@ -3,19 +3,20 @@
 use std::path::Path;
 
 use control::{CatalogEntry, Offer};
-use offer_sandbox::{DockerBackend, NoneBackend, SandboxExecOffer, StubBackend};
+use offer_sandbox::{BwrapBackend, DockerBackend, NoneBackend, SandboxExecOffer, StubBackend};
 use serde_json::{json, Value};
 use tracing::warn;
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
-/// `SANDBOX_BACKEND`: `none` host+jail (default), `stub` (no spawn), or `docker`.
+/// `SANDBOX_BACKEND`: `none` host+jail (default), `stub` (no spawn), `docker`, or `bwrap`.
 pub const SANDBOX_BACKEND: &str = "SANDBOX_BACKEND";
 
-/// Host, stub, or docker sandbox offer (selected at boot).
+/// Host, stub, docker, or bubblewrap sandbox offer (selected at boot).
 pub enum LiveSandbox {
     Host(SandboxExecOffer<NoneBackend>),
     Stub(SandboxExecOffer<StubBackend>),
     Docker(SandboxExecOffer<DockerBackend>),
+    Bwrap(SandboxExecOffer<BwrapBackend>),
 }
 
 impl LiveSandbox {
@@ -48,6 +49,14 @@ impl LiveSandbox {
                         .map_err(|_| ErrorCode::SchemaInvalid)?,
                 ))
             }
+            "bwrap" => {
+                tracing::info!(root = %jail_root.display(), "sandbox backend=bwrap");
+                let b = BwrapBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
+                Ok(Self::Bwrap(
+                    SandboxExecOffer::with_policy(b, &json!({ "sandbox": { "shell": true } }))
+                        .map_err(|_| ErrorCode::SchemaInvalid)?,
+                ))
+            }
             _ => {
                 tracing::info!(root = %jail_root.display(), "sandbox backend=none (host+jail)");
                 let b = NoneBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
@@ -59,13 +68,14 @@ impl LiveSandbox {
         }
     }
 
-    /// Env label for the selected backend (`none` / `stub` / `docker`).
+    /// Env label for the selected backend (`none` / `stub` / `docker` / `bwrap`).
     #[must_use]
     pub const fn backend_label(&self) -> &'static str {
         match self {
             Self::Host(_) => "none",
             Self::Stub(_) => "stub",
             Self::Docker(_) => "docker",
+            Self::Bwrap(_) => "bwrap",
         }
     }
 }
@@ -76,6 +86,7 @@ impl Offer for LiveSandbox {
             Self::Host(o) => o.catalog_entry(),
             Self::Stub(o) => o.catalog_entry(),
             Self::Docker(o) => o.catalog_entry(),
+            Self::Bwrap(o) => o.catalog_entry(),
         }
     }
 
@@ -84,6 +95,7 @@ impl Offer for LiveSandbox {
             Self::Host(o) => o.provision(params).await,
             Self::Stub(o) => o.provision(params).await,
             Self::Docker(o) => o.provision(params).await,
+            Self::Bwrap(o) => o.provision(params).await,
         }
     }
 
@@ -92,6 +104,7 @@ impl Offer for LiveSandbox {
             Self::Host(o) => o.bind(binding_id, params).await,
             Self::Stub(o) => o.bind(binding_id, params).await,
             Self::Docker(o) => o.bind(binding_id, params).await,
+            Self::Bwrap(o) => o.bind(binding_id, params).await,
         }
     }
 
@@ -100,6 +113,7 @@ impl Offer for LiveSandbox {
             Self::Host(o) => o.invoke(req).await,
             Self::Stub(o) => o.invoke(req).await,
             Self::Docker(o) => o.invoke(req).await,
+            Self::Bwrap(o) => o.invoke(req).await,
         }
     }
 
@@ -108,6 +122,7 @@ impl Offer for LiveSandbox {
             Self::Host(o) => o.unbind(binding_id).await,
             Self::Stub(o) => o.unbind(binding_id).await,
             Self::Docker(o) => o.unbind(binding_id).await,
+            Self::Bwrap(o) => o.unbind(binding_id).await,
         }
     }
 
@@ -116,6 +131,7 @@ impl Offer for LiveSandbox {
             Self::Host(o) => o.health().await,
             Self::Stub(o) => o.health().await,
             Self::Docker(o) => o.health().await,
+            Self::Bwrap(o) => o.health().await,
         }
     }
 }
@@ -153,5 +169,12 @@ mod tests {
         let live = from_env_selects("none");
         assert_eq!(live.backend_label(), "none");
         assert!(matches!(live, LiveSandbox::Host(_)));
+    }
+
+    #[test]
+    fn from_env_bwrap_selects_bwrap_backend() {
+        let live = from_env_selects("bwrap");
+        assert_eq!(live.backend_label(), "bwrap");
+        assert!(matches!(live, LiveSandbox::Bwrap(_)));
     }
 }
