@@ -11,7 +11,8 @@ mod program_policy;
 mod sanitized_env;
 
 pub use backend::{
-    ExecRequest, ExecResult, NoneBackend, SandboxBackend, SandboxError, StubBackend,
+    unshare_net_argv, ExecRequest, ExecResult, NoneBackend, SandboxBackend, SandboxError,
+    StubBackend,
 };
 pub use docker::DockerBackend;
 pub use exec_offer::SandboxExecOffer;

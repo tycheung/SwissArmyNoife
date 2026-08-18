@@ -190,10 +190,8 @@ impl SandboxBackend for NoneBackend {
         let program = validate_argv(&req.argv)?;
         reject_outside_argv_paths(&self.jail, &req.argv)?;
         let cwd = self.jail.resolve_canonical(&req.cwd)?;
-        let mut cmd = Command::new(program);
-        if req.argv.len() > 1 {
-            cmd.args(&req.argv[1..]);
-        }
+        let rest = &req.argv[1..];
+        let mut cmd = host_command(program, rest);
         cmd.current_dir(&cwd);
         SanitizedEnv::from_os().apply_to(&mut cmd);
         #[cfg(windows)]
@@ -204,6 +202,30 @@ impl SandboxBackend for NoneBackend {
         }
         wait_output_or_timeout(cmd, self.timeout)
     }
+}
+
+fn host_command(program: &str, rest: &[String]) -> Command {
+    #[cfg(all(unix, feature = "sandbox-unshare"))]
+    {
+        let mut cmd = Command::new("unshare");
+        cmd.args(["-n", "--", program]);
+        cmd.args(rest);
+        cmd
+    }
+    #[cfg(not(all(unix, feature = "sandbox-unshare")))]
+    {
+        let mut cmd = Command::new(program);
+        cmd.args(rest);
+        cmd
+    }
+}
+
+/// Argv for an optional `unshare -n` wrapper (shape test; Linux feature).
+#[must_use]
+pub fn unshare_net_argv(program: &str, rest: &[String]) -> Vec<String> {
+    let mut argv = vec!["unshare".into(), "-n".into(), "--".into(), program.into()];
+    argv.extend(rest.iter().cloned());
+    argv
 }
 
 /// Deterministic no-spawn backend (`backend = stub`): jail-checks cwd, echoes argv.
@@ -410,5 +432,28 @@ mod tests {
             })
             .expect_err("dotdot");
         assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+    }
+
+    #[test]
+    fn unshare_net_argv_shape() {
+        let argv = unshare_net_argv("curl", &["https://example.com".into()]);
+        assert_eq!(
+            argv,
+            vec!["unshare", "-n", "--", "curl", "https://example.com"]
+        );
+    }
+
+    #[cfg(all(unix, feature = "sandbox-unshare"))]
+    #[test]
+    fn unshare_feature_uses_unshare_binary() {
+        let cmd = host_command("curl", &["https://example.com".into()]);
+        assert_eq!(cmd.get_program(), "unshare");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn unshare_skipped_on_windows() {
+        let cmd = host_command("curl", &["https://example.com".into()]);
+        assert_eq!(cmd.get_program(), "curl");
     }
 }

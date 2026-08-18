@@ -17,5 +17,10 @@ thiserror = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 
+[features]
+default = []
+# Wrap host NoneBackend exec with `unshare -n` (Linux). No effect on Windows.
+sandbox-unshare = []
+
 [lints]
 workspace = true
