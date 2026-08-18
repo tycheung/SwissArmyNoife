@@ -101,6 +101,12 @@ impl DockerBackend {
             args.push("-v".into());
             args.push(spec);
         }
+        if let Some(mem) = &self.mount_policy.max_memory {
+            args.extend(["--memory".into(), mem.clone()]);
+        }
+        if let Some(cpus) = &self.mount_policy.max_cpus {
+            args.extend(["--cpus".into(), cpus.clone()]);
+        }
         args.extend(["-w".into(), workdir, self.image.clone()]);
         args.extend(req.argv.iter().cloned());
         Ok(args)
@@ -232,6 +238,7 @@ mod tests {
                 guest: PathBuf::from("workspace"),
                 read_only: true,
             }],
+            ..Default::default()
         });
         let args = backend
             .build_run_args(&ExecRequest {
@@ -255,6 +262,7 @@ mod tests {
                 guest: PathBuf::from("workspace"),
                 read_only: true,
             }],
+            ..Default::default()
         };
         let req = ExecRequest {
             argv: vec!["true".into()],
@@ -281,6 +289,7 @@ mod tests {
                 guest: PathBuf::from("../escape"),
                 read_only: false,
             }],
+            ..Default::default()
         });
         let err = backend
             .build_run_args(&ExecRequest {
@@ -289,6 +298,31 @@ mod tests {
             })
             .expect_err("invalid policy");
         assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+    }
+
+    #[test]
+    fn build_run_args_includes_memory_and_cpus() {
+        let (_tmp, backend) = backend();
+        let backend = backend.with_mount_policy(WorkspaceMountPolicy {
+            max_memory: Some("256m".into()),
+            max_cpus: Some("0.5".into()),
+            ..Default::default()
+        });
+        let args = backend
+            .build_run_args(&ExecRequest {
+                argv: vec!["true".into()],
+                cwd: PathBuf::from("."),
+            })
+            .expect("args");
+        assert!(
+            args.windows(2)
+                .any(|w| w[0] == "--memory" && w[1] == "256m"),
+            "expected --memory 256m in {args:?}"
+        );
+        assert!(
+            args.windows(2).any(|w| w[0] == "--cpus" && w[1] == "0.5"),
+            "expected --cpus 0.5 in {args:?}"
+        );
     }
 
     #[test]

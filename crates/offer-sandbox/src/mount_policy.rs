@@ -19,6 +19,12 @@ pub struct BindMount {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceMountPolicy {
     pub mounts: Vec<BindMount>,
+    /// Docker `--memory` (e.g. `256m`). Unset → omit the flag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_memory: Option<String>,
+    /// Docker `--cpus` (e.g. `0.5`). Unset → omit the flag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_cpus: Option<String>,
 }
 
 /// Bind-mount policy validation failures.
@@ -66,19 +72,36 @@ impl WorkspaceMountPolicy {
         Ok(())
     }
 
-    /// Parse `mounts` from a binding policy JSON object (missing key → empty policy).
+    /// Parse `mounts` and Docker resource caps from a binding policy JSON object.
+    ///
+    /// Missing `mounts` → empty list. `risk_caps.max_memory` / `risk_caps.max_cpus`
+    /// become Docker `--memory` / `--cpus` when set.
     ///
     /// # Errors
     /// Schema errors or guest path escape.
     pub fn from_bind_params(params: &serde_json::Value) -> Result<Self, MountPolicyError> {
-        let Some(raw) = params.get("mounts") else {
-            return Ok(Self::default());
+        let mounts = match params.get("mounts") {
+            None => Vec::new(),
+            Some(raw) => serde_json::from_value(raw.clone()).map_err(|_| {
+                MountPolicyError::SchemaInvalid("mounts must be bind-mount objects")
+            })?,
         };
-        let mounts: Vec<BindMount> = serde_json::from_value(raw.clone())
-            .map_err(|_| MountPolicyError::SchemaInvalid("mounts must be bind-mount objects"))?;
-        let policy = Self { mounts };
+        let risk = params.get("risk_caps");
+        let policy = Self {
+            mounts,
+            max_memory: risk.and_then(|r| parse_limit(r, "max_memory")),
+            max_cpus: risk.and_then(|r| parse_limit(r, "max_cpus")),
+        };
         policy.validate()?;
         Ok(policy)
+    }
+}
+
+fn parse_limit(risk: &serde_json::Value, key: &str) -> Option<String> {
+    match risk.get(key) {
+        Some(serde_json::Value::String(s)) if !s.is_empty() => Some(s.clone()),
+        Some(serde_json::Value::Number(n)) => Some(n.to_string()),
+        _ => None,
     }
 }
 
@@ -182,6 +205,7 @@ mod tests {
                     read_only: true,
                 },
             ],
+            ..Default::default()
         };
         let err = policy.validate().expect_err("second mount");
         assert_eq!(err, MountPolicyError::Escape);
@@ -195,6 +219,7 @@ mod tests {
                 guest: PathBuf::from("guest/dir"),
                 read_only: true,
             }],
+            ..Default::default()
         };
         let v = serde_json::to_value(&policy).expect("serialize");
         assert_eq!(
@@ -235,5 +260,15 @@ mod tests {
         .expect("ok");
         assert_eq!(p.mounts.len(), 1);
         assert!(p.mounts[0].read_only);
+    }
+
+    #[test]
+    fn from_bind_params_reads_docker_resource_caps() {
+        let p = WorkspaceMountPolicy::from_bind_params(&json!({
+            "risk_caps": { "max_memory": "256m", "max_cpus": 0.5 }
+        }))
+        .expect("ok");
+        assert_eq!(p.max_memory.as_deref(), Some("256m"));
+        assert_eq!(p.max_cpus.as_deref(), Some("0.5"));
     }
 }
