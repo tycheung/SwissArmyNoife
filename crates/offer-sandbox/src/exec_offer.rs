@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
+use crate::capture::{capture_cap, truncate_capture};
 use crate::program_policy::is_shell_wrapper;
 use crate::{ExecRequest, ProgramAllowlist, SandboxBackend, SandboxError, WorkspaceMountPolicy};
 
@@ -187,26 +188,6 @@ fn run_exec<B: SandboxBackend>(
         "stdout_truncated": stdout_truncated,
         "stderr_truncated": stderr_truncated,
     }))
-}
-
-const DEFAULT_CAPTURE_BYTES: usize = 1_048_576;
-
-fn capture_cap(policy: Option<u64>) -> usize {
-    policy
-        .and_then(|n| usize::try_from(n).ok())
-        .unwrap_or(DEFAULT_CAPTURE_BYTES)
-}
-
-fn truncate_capture(raw: &str, cap: usize) -> (String, bool) {
-    let bytes = raw.as_bytes();
-    if bytes.len() <= cap {
-        return (raw.to_string(), false);
-    }
-    let mut end = cap;
-    while end > 0 && !raw.is_char_boundary(end) {
-        end -= 1;
-    }
-    (raw[..end].to_string(), true)
 }
 
 fn map_sandbox(err: &SandboxError) -> (ErrorCode, String) {

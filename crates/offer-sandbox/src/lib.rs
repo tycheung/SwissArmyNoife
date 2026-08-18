@@ -1,6 +1,7 @@
 //! `sandbox.*` helpers (filesystem jail + exec backends + offer).
 
 mod backend;
+mod capture;
 mod docker;
 mod exec_offer;
 mod jail;
