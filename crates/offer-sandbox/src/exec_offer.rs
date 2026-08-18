@@ -139,11 +139,43 @@ fn run_exec<B: SandboxBackend>(
             &policy,
         )
         .map_err(|e| map_sandbox(&e))?;
+    let caps = {
+        let ledger = risk
+            .lock()
+            .map_err(|_| (ErrorCode::SchemaInvalid, "risk lock poisoned".into()))?;
+        ledger.caps().clone()
+    };
+    let (stdout, stdout_truncated) =
+        truncate_capture(&out.stdout, capture_cap(caps.max_stdout_bytes));
+    let (stderr, stderr_truncated) =
+        truncate_capture(&out.stderr, capture_cap(caps.max_stderr_bytes));
     Ok(json!({
         "exit_code": out.exit_code,
-        "stdout": out.stdout,
-        "stderr": out.stderr,
+        "stdout": stdout,
+        "stderr": stderr,
+        "stdout_truncated": stdout_truncated,
+        "stderr_truncated": stderr_truncated,
     }))
+}
+
+const DEFAULT_CAPTURE_BYTES: usize = 1_048_576;
+
+fn capture_cap(policy: Option<u64>) -> usize {
+    policy
+        .and_then(|n| usize::try_from(n).ok())
+        .unwrap_or(DEFAULT_CAPTURE_BYTES)
+}
+
+fn truncate_capture(raw: &str, cap: usize) -> (String, bool) {
+    let bytes = raw.as_bytes();
+    if bytes.len() <= cap {
+        return (raw.to_string(), false);
+    }
+    let mut end = cap;
+    while end > 0 && !raw.is_char_boundary(end) {
+        end -= 1;
+    }
+    (raw[..end].to_string(), true)
 }
 
 fn map_sandbox(err: &SandboxError) -> (ErrorCode, String) {
@@ -308,5 +340,31 @@ mod tests {
             .await
             .expect_err("escape");
         assert_eq!(err, ErrorCode::SandboxViolation);
+    }
+
+    #[tokio::test]
+    async fn stdout_over_cap_truncates_with_metadata() {
+        let offer = stub_offer(&json!({
+            "risk_caps": { "max_stdout_bytes": 8, "max_stderr_bytes": 0 }
+        }));
+        let resp = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                args: json!({"argv": ["echo", "abcdefghijklmnop"]}),
+                invoke_id: None,
+                offer: None,
+            })
+            .await;
+        match resp {
+            InvokeResp::Ok { result, .. } => {
+                let stdout = result["stdout"].as_str().expect("stdout");
+                assert!(stdout.len() <= 8, "stdout={stdout:?}");
+                assert_eq!(result["stdout_truncated"], true);
+                assert_eq!(result["stderr_truncated"], false);
+            }
+            InvokeResp::Error { code, message, .. } => {
+                panic!("unexpected error {code}: {message}")
+            }
+        }
     }
 }

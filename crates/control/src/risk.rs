@@ -9,6 +9,10 @@ pub struct RiskCaps {
     pub max_tool_steps: Option<u64>,
     pub max_shell_invocations: Option<u64>,
     pub max_write_bytes: Option<u64>,
+    /// Per-exec captured stdout cap (bytes). Unset → offer default.
+    pub max_stdout_bytes: Option<u64>,
+    /// Per-exec captured stderr cap (bytes). Unset → offer default.
+    pub max_stderr_bytes: Option<u64>,
 }
 
 impl RiskCaps {
@@ -22,6 +26,8 @@ impl RiskCaps {
             max_tool_steps: obj.get("max_tool_steps").and_then(Value::as_u64),
             max_shell_invocations: obj.get("max_shell_invocations").and_then(Value::as_u64),
             max_write_bytes: obj.get("max_write_bytes").and_then(Value::as_u64),
+            max_stdout_bytes: obj.get("max_stdout_bytes").and_then(Value::as_u64),
+            max_stderr_bytes: obj.get("max_stderr_bytes").and_then(Value::as_u64),
         }
     }
 }
@@ -131,6 +137,8 @@ mod tests {
         assert_eq!(caps.max_tool_steps, Some(3));
         assert_eq!(caps.max_shell_invocations, Some(2));
         assert_eq!(caps.max_write_bytes, Some(100));
+        assert_eq!(caps.max_stdout_bytes, None);
+        assert_eq!(caps.max_stderr_bytes, None);
     }
 
     #[test]
@@ -145,6 +153,8 @@ mod tests {
             max_tool_steps: Some(2),
             max_shell_invocations: Some(1),
             max_write_bytes: None,
+            max_stdout_bytes: None,
+            max_stderr_bytes: None,
         });
         ledger.charge_tool_step().expect("1");
         ledger.charge_tool_step().expect("2");
@@ -152,6 +162,15 @@ mod tests {
         ledger.charge_shell().expect("shell");
         assert_eq!(ledger.charge_shell(), Err(ErrorCode::BudgetExhausted));
         ledger.charge_write_bytes(999).expect("writes unlimited");
+    }
+
+    #[test]
+    fn from_policy_reads_capture_caps() {
+        let caps = RiskCaps::from_policy(&json!({
+            "risk_caps": { "max_stdout_bytes": 8, "max_stderr_bytes": 4 }
+        }));
+        assert_eq!(caps.max_stdout_bytes, Some(8));
+        assert_eq!(caps.max_stderr_bytes, Some(4));
     }
 
     #[test]
