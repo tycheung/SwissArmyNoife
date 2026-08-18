@@ -112,11 +112,40 @@ fn eval_one(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
             };
             Ok((ok, message))
         }
+        "json_path" => eval_json_path(c),
         other => Err((
             ErrorCode::SchemaInvalid,
             format!("check {}: unknown assert {other:?}", c.id),
         )),
     }
+}
+
+fn eval_json_path(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
+    let Some(ptr) = c.expected.get("pointer").and_then(Value::as_str) else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!(
+                "check {}: json_path expected.pointer must be a string",
+                c.id
+            ),
+        ));
+    };
+    let Some(equals) = c.expected.get("equals") else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: json_path expected.equals required", c.id),
+        ));
+    };
+    let found = c.actual.pointer(ptr);
+    let ok = found == Some(equals);
+    let message = if ok {
+        Value::Null
+    } else {
+        json!(format!(
+            "json_path {ptr} actual={found:?} expected={equals}"
+        ))
+    };
+    Ok((ok, message))
 }
 
 #[cfg(test)]
@@ -169,6 +198,55 @@ mod tests {
                 "checks": [
                     { "id": "c", "assert": "contains", "actual": "a", "expected": "a" }
                 ]
+            }),
+            Some(&allow),
+        )
+        .expect_err("deny");
+        assert_eq!(err.0, ErrorCode::PolicyDenied);
+    }
+
+    #[test]
+    fn json_path_pass_and_fail() {
+        let doc = json!({ "user": { "id": 7 } });
+        let pass = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "jp",
+                    "assert": "json_path",
+                    "actual": doc,
+                    "expected": { "pointer": "/user/id", "equals": 7 }
+                }]
+            }),
+            None,
+        )
+        .expect("pass");
+        assert_eq!(pass["passed"], true);
+        let fail = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "jp",
+                    "assert": "json_path",
+                    "actual": { "user": { "id": 7 } },
+                    "expected": { "pointer": "/user/id", "equals": 8 }
+                }]
+            }),
+            None,
+        )
+        .expect("fail");
+        assert_eq!(fail["passed"], false);
+    }
+
+    #[test]
+    fn json_path_allowlist() {
+        let allow = vec!["eq".into()];
+        let err = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "jp",
+                    "assert": "json_path",
+                    "actual": { "a": 1 },
+                    "expected": { "pointer": "/a", "equals": 1 }
+                }]
             }),
             Some(&allow),
         )
