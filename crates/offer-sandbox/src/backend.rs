@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 use types::ErrorCode;
 
-use crate::{FilesystemJail, JailError, WorkspaceMountPolicy};
+use crate::{FilesystemJail, JailError, SanitizedEnv, WorkspaceMountPolicy};
 
 /// Request to run a command inside a sandbox backend.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -195,6 +195,7 @@ impl SandboxBackend for NoneBackend {
             cmd.args(&req.argv[1..]);
         }
         cmd.current_dir(&cwd);
+        SanitizedEnv::from_os().apply_to(&mut cmd);
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
