@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
+use crate::program_policy::is_shell_wrapper;
 use crate::{ExecRequest, ProgramAllowlist, SandboxBackend, SandboxError, WorkspaceMountPolicy};
 
 /// First-party `sandbox.exec` offer backed by a [`SandboxBackend`].
@@ -136,11 +137,13 @@ fn run_exec<B: SandboxBackend>(
         let allow = programs
             .lock()
             .map_err(|_| (ErrorCode::SchemaInvalid, "programs lock poisoned".into()))?;
-        allow.permits(&parsed.argv[0]).map_err(|code| {
-            (
-                code,
-                format!("policy.denied: sandbox.programs: {}", parsed.argv[0]),
-            )
+        allow.check_exec(&parsed.argv).map_err(|code| {
+            let kind = if is_shell_wrapper(&parsed.argv) {
+                "sandbox.shell"
+            } else {
+                "sandbox.programs"
+            };
+            (code, format!("policy.denied: {kind}: {}", parsed.argv[0]))
         })?;
     }
     {

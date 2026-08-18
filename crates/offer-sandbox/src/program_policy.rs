@@ -11,34 +11,43 @@ use types::ErrorCode;
 pub struct ProgramAllowlist {
     /// `None` = unrestricted; `Some(empty)` = deny all; else basename match.
     allowed: Option<BTreeSet<String>>,
+    /// When false, `sh -c` / `cmd /C` wrappers are denied.
+    allow_shell: bool,
 }
 
 impl ProgramAllowlist {
-    /// Unrestricted (no `sandbox.programs` in policy).
+    /// Unrestricted programs; shell wrappers still denied until `sandbox.shell`.
     #[must_use]
     pub fn unrestricted() -> Self {
-        Self { allowed: None }
+        Self {
+            allowed: None,
+            allow_shell: false,
+        }
     }
 
-    /// Parse `{ "sandbox": { "programs": ["git", "cargo"] } }`.
+    /// Parse `{ "sandbox": { "programs": ["git"], "shell": true } }`.
     ///
     /// Absent `sandbox.programs` → unrestricted. Present array (even empty) → deny-by-default.
+    /// Absent `sandbox.shell` → wrappers denied.
     #[must_use]
     pub fn from_policy(policy: &Value) -> Self {
-        let Some(arr) = policy
+        let allow_shell = policy
+            .pointer("/sandbox/shell")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let allowed = policy
             .pointer("/sandbox/programs")
             .and_then(Value::as_array)
-        else {
-            return Self::unrestricted();
-        };
-        let allowed = arr
-            .iter()
-            .filter_map(Value::as_str)
-            .map(normalize_program)
-            .filter(|s| !s.is_empty())
-            .collect();
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(normalize_program)
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            });
         Self {
-            allowed: Some(allowed),
+            allowed,
+            allow_shell,
         }
     }
 
@@ -61,6 +70,30 @@ impl ProgramAllowlist {
         } else {
             Err(ErrorCode::PolicyDenied)
         }
+    }
+
+    /// Program allowlist plus shell-wrapper gate (`sh -c` / `cmd /C`).
+    ///
+    /// # Errors
+    /// Returns [`ErrorCode::PolicyDenied`] for unknown programs or disallowed wrappers.
+    pub fn check_exec(&self, argv: &[String]) -> Result<(), ErrorCode> {
+        if is_shell_wrapper(argv) && !self.allow_shell {
+            return Err(ErrorCode::PolicyDenied);
+        }
+        argv.first().map_or(Ok(()), |p| self.permits(p))
+    }
+}
+
+pub(crate) fn is_shell_wrapper(argv: &[String]) -> bool {
+    let Some(prog) = argv.first() else {
+        return false;
+    };
+    let name = normalize_program(prog);
+    let rest = &argv[1..];
+    match name.as_str() {
+        "sh" | "bash" | "zsh" | "dash" | "ash" => rest.iter().any(|a| a == "-c"),
+        "cmd" => rest.iter().any(|a| a.eq_ignore_ascii_case("/c")),
+        _ => false,
     }
 }
 
@@ -103,5 +136,31 @@ mod tests {
         assert!(a.permits("GIT.EXE").is_ok());
         assert!(a.permits("cargo").is_ok());
         assert_eq!(a.permits("python"), Err(ErrorCode::PolicyDenied));
+    }
+
+    #[test]
+    fn sh_dash_c_denied_unless_shell_true() {
+        let deny = ProgramAllowlist::from_policy(&json!({}));
+        assert_eq!(
+            deny.check_exec(&["sh".into(), "-c".into(), "echo hi".into()]),
+            Err(ErrorCode::PolicyDenied)
+        );
+        let allow = ProgramAllowlist::from_policy(&json!({ "sandbox": { "shell": true } }));
+        assert!(allow
+            .check_exec(&["sh".into(), "-c".into(), "echo hi".into()])
+            .is_ok());
+    }
+
+    #[test]
+    fn cmd_slash_c_denied_unless_shell_true() {
+        let deny = ProgramAllowlist::from_policy(&json!({}));
+        assert_eq!(
+            deny.check_exec(&["cmd".into(), "/C".into(), "echo hi".into()]),
+            Err(ErrorCode::PolicyDenied)
+        );
+        let allow = ProgramAllowlist::from_policy(&json!({ "sandbox": { "shell": true } }));
+        assert!(allow
+            .check_exec(&["cmd.exe".into(), "/c".into(), "echo hi".into()])
+            .is_ok());
     }
 }

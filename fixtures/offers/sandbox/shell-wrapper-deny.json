@@ -1,0 +1,19 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "sandbox.exec",
+  "source": "hand-authored shell wrapper deny (sak554-b)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000013",
+    "invoke_id": "00000000-0000-0000-0000-000000000014",
+    "offer": "sandbox.exec",
+    "args": {
+      "argv": ["sh", "-c", "echo pwn"],
+      "cwd": "."
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "policy.denied",
+    "message_contains": "policy.denied: sandbox.shell"
+  }
+}
