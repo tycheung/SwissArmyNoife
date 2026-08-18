@@ -193,6 +193,8 @@ impl LiveOffers {
             ]
         };
         let connections = vault_connection_refs();
+        let sandbox = LiveSandbox::from_env(&jail)?;
+        let sandbox_jail = SandboxJailOffer::new(jail_fs)?.with_backend(sandbox.backend_label());
         Ok(Self {
             llm: LlmChatOffer::new(McpLlmRouter::from_env(), connections.clone())?,
             // Echo embed vectors until live provider routing lands with MCP tool (sak523-b).
@@ -204,8 +206,8 @@ impl LiveOffers {
             )?,
             llm_ollama_manage: LlmOllamaManageOffer::localhost()?,
             llm_telemetry: LlmTelemetryOffer::new()?,
-            sandbox: LiveSandbox::from_env(&jail)?,
-            sandbox_jail: SandboxJailOffer::new(jail_fs)?,
+            sandbox,
+            sandbox_jail,
             egress: EgressCheckOffer::new()?,
             egress_fetch: EgressFetchOffer::new()?,
             memory_index: MemoryIndexOffer::new(Arc::clone(&plane))?,

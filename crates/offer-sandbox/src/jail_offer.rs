@@ -11,6 +11,7 @@ use crate::jail::FilesystemJail;
 pub struct SandboxJailOffer {
     entry: CatalogEntry,
     jail: FilesystemJail,
+    backend: String,
 }
 
 impl SandboxJailOffer {
@@ -20,7 +21,15 @@ impl SandboxJailOffer {
         Ok(Self {
             entry: CatalogEntry::new("sandbox.jail", "0.1.0")?,
             jail,
+            backend: "none".into(),
         })
+    }
+
+    /// Label the live sandbox backend (`none` / `stub` / `docker` / `bwrap`).
+    #[must_use]
+    pub fn with_backend(mut self, backend: impl Into<String>) -> Self {
+        self.backend = backend.into();
+        self
     }
 
     /// Root label only (final path component) — never the full host path.
@@ -50,7 +59,7 @@ impl Offer for SandboxJailOffer {
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
         let invoke_id = req.invoke_id.unwrap_or_default();
-        match run_jail(&self.jail, &self.root_label(), &req.args) {
+        match run_jail(&self.jail, &self.root_label(), &self.backend, &req.args) {
             Ok(result) => InvokeResp::ok(invoke_id, result),
             Err((code, message)) => InvokeResp::Error {
                 invoke_id: Some(invoke_id),
@@ -81,9 +90,17 @@ fn default_op() -> String {
     "policy".into()
 }
 
+fn network_posture(backend: &str) -> &'static str {
+    match backend {
+        "docker" | "bwrap" => "isolated",
+        _ => "host",
+    }
+}
+
 fn run_jail(
     jail: &FilesystemJail,
     root_label: &str,
+    backend: &str,
     args: &Value,
 ) -> Result<Value, (ErrorCode, String)> {
     let parsed: JailArgs = serde_json::from_value(args.clone())
@@ -98,6 +115,8 @@ fn run_jail(
             "ops": ["root", "probe", "policy"],
             "containment": "lexical",
             "root_label": root_label,
+            "backend": backend,
+            "network_posture": network_posture(backend),
         })),
         "probe" => {
             let path = parsed
@@ -198,5 +217,31 @@ mod tests {
             })
             .await;
         assert!(matches!(resp, InvokeResp::Error { .. }));
+    }
+
+    #[tokio::test]
+    async fn policy_reports_backend_and_network_posture() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let jail = FilesystemJail::new(tmp.path()).expect("jail");
+        let offer = SandboxJailOffer::new(jail)
+            .expect("offer")
+            .with_backend("docker");
+        let resp = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                invoke_id: None,
+                args: json!({ "op": "policy" }),
+                offer: None,
+            })
+            .await;
+        match resp {
+            InvokeResp::Ok { result, .. } => {
+                assert_eq!(result["backend"], "docker");
+                assert_eq!(result["network_posture"], "isolated");
+                let s = result.to_string();
+                assert!(!s.contains(":\\") && !s.contains("VAULT_KEY"));
+            }
+            other @ InvokeResp::Error { .. } => panic!("unexpected {other:?}"),
+        }
     }
 }
