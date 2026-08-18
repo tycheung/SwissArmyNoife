@@ -82,6 +82,7 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 wiremock = "0.6"
 sha2 = "0.10"
+regex = "1.11"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

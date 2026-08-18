@@ -113,6 +113,7 @@ fn eval_one(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
             Ok((ok, message))
         }
         "json_path" => eval_json_path(c),
+        "regex" => eval_regex(c),
         other => Err((
             ErrorCode::SchemaInvalid,
             format!("check {}: unknown assert {other:?}", c.id),
@@ -144,6 +145,34 @@ fn eval_json_path(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
         json!(format!(
             "json_path {ptr} actual={found:?} expected={equals}"
         ))
+    };
+    Ok((ok, message))
+}
+
+fn eval_regex(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
+    let Some(hay) = c.actual.as_str() else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: regex requires string actual", c.id),
+        ));
+    };
+    let Some(pat) = c.expected.as_str() else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: regex requires string expected", c.id),
+        ));
+    };
+    let re = regex::Regex::new(pat).map_err(|e| {
+        (
+            ErrorCode::SchemaInvalid,
+            format!("check {}: invalid regex: {e}", c.id),
+        )
+    })?;
+    let ok = re.is_match(hay);
+    let message = if ok {
+        Value::Null
+    } else {
+        json!(format!("regex failed: {hay:?} !~ {pat:?}"))
     };
     Ok((ok, message))
 }
@@ -252,5 +281,49 @@ mod tests {
         )
         .expect_err("deny");
         assert_eq!(err.0, ErrorCode::PolicyDenied);
+    }
+
+    #[test]
+    fn regex_pass_fail_and_invalid() {
+        let pass = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "re",
+                    "assert": "regex",
+                    "actual": "abc123",
+                    "expected": "^[a-z]+[0-9]+$"
+                }]
+            }),
+            None,
+        )
+        .expect("pass");
+        assert_eq!(pass["passed"], true);
+        let fail = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "re",
+                    "assert": "regex",
+                    "actual": "nope",
+                    "expected": "^[0-9]+$"
+                }]
+            }),
+            None,
+        )
+        .expect("fail");
+        assert_eq!(fail["passed"], false);
+        let err = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "re",
+                    "assert": "regex",
+                    "actual": "x",
+                    "expected": "("
+                }]
+            }),
+            None,
+        )
+        .expect_err("invalid");
+        assert_eq!(err.0, ErrorCode::SchemaInvalid);
+        assert!(err.1.contains("invalid regex"));
     }
 }

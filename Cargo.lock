@@ -1823,6 +1823,7 @@ name = "offer-eval"
 version = "0.1.0"
 dependencies = [
  "control",
+ "regex",
  "serde",
  "serde_json",
  "tokio",
