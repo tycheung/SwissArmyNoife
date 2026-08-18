@@ -561,6 +561,49 @@ async fn bind_invoke_eval_run_pass_fail() {
 }
 
 #[tokio::test]
+async fn bind_eval_run_disallowed_assert() {
+    let (server, _tmp) = test_server();
+    let mut args = sample_bind("eval.run");
+    args.policy = json!({ "eval": { "allowed_asserts": ["eq"] } });
+    let bound = server.bind(Parameters(args)).await.expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let raw = server
+        .eval_run(Parameters(crate::tool_args::EvalRunArgs {
+            binding_id: binding_id.clone(),
+            op: Some("run".into()),
+            checks: vec![crate::tool_args::EvalCheckArg {
+                id: "c".into(),
+                assert: "contains".into(),
+                actual: json!("hi"),
+                expected: json!("h"),
+            }],
+        }))
+        .await
+        .expect("eval_run deny");
+    let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
+    match resp {
+        InvokeResp::Error {
+            code: ErrorCode::PolicyDenied,
+            message,
+            ..
+        } => {
+            assert!(
+                message.contains("not allowed"),
+                "expected allowlist deny, got {message}"
+            );
+        }
+        other => panic!("expected PolicyDenied, got {other:?}"),
+    }
+    server
+        .unbind(Parameters(UnbindArgs { binding_id }))
+        .await
+        .expect("unbind");
+}
+
+#[tokio::test]
 async fn bind_idempotency_replays_same_binding_id() {
     let (server, _tmp) = test_server();
     let mut args = sample_bind("llm.chat");

@@ -29,9 +29,20 @@ fn default_assert() -> String {
     "eq".into()
 }
 
+const DEFAULT_ALLOWED_ASSERTS: &[&str] = &[
+    "eq",
+    "contains",
+    "json_path",
+    "regex",
+    "numeric_tolerance",
+    "contains_all",
+    "contains_any",
+];
+
 /// Run checks; overall `passed` is true iff every check passes.
 ///
-/// When `allowed_asserts` is `Some`, unknown assert kinds return `policy.denied`.
+/// When `allowed_asserts` is `Some`, only those kinds are permitted.
+/// When `None`, [`DEFAULT_ALLOWED_ASSERTS`] applies (sak536-a).
 pub(crate) fn run_checks(
     args: &Value,
     allowed_asserts: Option<&[String]>,
@@ -60,6 +71,11 @@ pub(crate) fn run_checks(
                     format!("assert {:?} not allowed by binding policy", c.assert),
                 ));
             }
+        } else if !DEFAULT_ALLOWED_ASSERTS.iter().any(|a| *a == c.assert) {
+            return Err((
+                ErrorCode::PolicyDenied,
+                format!("assert {:?} not in default allowed_asserts", c.assert),
+            ));
         }
         let (ok, message) = eval_one(c)?;
         if !ok {
@@ -305,6 +321,23 @@ mod tests {
                 ]
             }),
             Some(&allow),
+        )
+        .expect_err("deny");
+        assert_eq!(err.0, ErrorCode::PolicyDenied);
+    }
+
+    #[test]
+    fn default_allowlist_denies_unknown_kind() {
+        let err = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "x",
+                    "assert": "not_a_kind",
+                    "actual": 1,
+                    "expected": 1
+                }]
+            }),
+            None,
         )
         .expect_err("deny");
         assert_eq!(err.0, ErrorCode::PolicyDenied);

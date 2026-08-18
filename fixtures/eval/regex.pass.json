@@ -1,0 +1,20 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "eval.run",
+  "source": "sak535-a",
+  "bind_policy": {},
+  "request": {
+    "args": {
+      "op": "run",
+      "checks": [
+        {
+          "id": "re",
+          "assert": "regex",
+          "actual": "abc123",
+          "expected": "^[a-z]+[0-9]+$"
+        }
+      ]
+    }
+  },
+  "expect": { "status": "ok", "result": { "passed": true } }
+}

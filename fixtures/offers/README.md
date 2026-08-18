@@ -15,6 +15,8 @@ fixtures/offers/
     provider-openai-hint.json ← openai provider_default routing (no secrets)
   sandbox/                  ← filesystem jail / argv / symlink goldens
   <offer-id>.<case>.json    ← one scenario per file (other offers)
+
+Eval pack (`sak535-a`): [`../eval/`](../eval/) — loaded by `offer-eval` golden tests.
 ```
 
 ## File format (v0)

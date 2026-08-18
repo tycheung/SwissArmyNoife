@@ -1,0 +1,20 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "eval.run",
+  "source": "sak535-a",
+  "bind_policy": {},
+  "request": {
+    "args": {
+      "op": "run",
+      "checks": [
+        {
+          "id": "jp",
+          "assert": "json_path",
+          "actual": { "user": { "id": 7 } },
+          "expected": { "pointer": "/user/id", "equals": 7 }
+        }
+      ]
+    }
+  },
+  "expect": { "status": "ok", "result": { "passed": true } }
+}
