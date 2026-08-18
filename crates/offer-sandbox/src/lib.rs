@@ -1,6 +1,7 @@
 //! `sandbox.*` helpers (filesystem jail + exec backends + offer).
 
 mod backend;
+mod bwrap;
 mod capture;
 mod docker;
 mod exec_offer;
@@ -14,6 +15,7 @@ pub use backend::{
     unshare_net_argv, ExecRequest, ExecResult, NoneBackend, SandboxBackend, SandboxError,
     StubBackend,
 };
+pub use bwrap::BwrapBackend;
 pub use docker::DockerBackend;
 pub use exec_offer::SandboxExecOffer;
 pub use jail::{FilesystemJail, JailError};
