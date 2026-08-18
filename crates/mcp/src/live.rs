@@ -78,7 +78,10 @@ impl LiveOffers {
                 "echo".into(),
             ]
         };
-        let connections = vault_connection_refs();
+        let connections = vault_connection_refs().unwrap_or_else(|code| {
+            tracing::warn!(code = code.as_str(), "vault connection catalog unavailable");
+            Vec::new()
+        });
         let sandbox = LiveSandbox::from_env(&jail)?;
         let sandbox_jail = SandboxJailOffer::new(jail_fs)?.with_backend(sandbox.backend_label());
         Ok(Self {
@@ -143,21 +146,34 @@ impl LiveOffers {
 }
 
 /// Load vault connection metadata for LLM resolve (no secrets).
-pub(crate) fn vault_connection_refs() -> Vec<ConnectionRef> {
-    let Ok(conn) = persist_sqlite::open_default() else {
-        return Vec::new();
-    };
-    match persist_sqlite::list_connections(&conn) {
-        Ok(rows) => rows
-            .into_iter()
-            .map(|m| ConnectionRef {
-                connection_id: m.connection_id,
-                provider: m.provider,
-                label: m.label,
-            })
-            .collect(),
-        Err(_) => Vec::new(),
+///
+/// # Errors
+/// [`ErrorCode::VaultMissing`] when the `SQLite` vault cannot be opened or listed.
+pub(crate) fn vault_connection_refs() -> Result<Vec<ConnectionRef>, ErrorCode> {
+    #[cfg(test)]
+    if FORCE_VAULT_MISS.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(ErrorCode::VaultMissing);
     }
+    let conn = persist_sqlite::open_default().map_err(|_| ErrorCode::VaultMissing)?;
+    persist_sqlite::list_connections(&conn)
+        .map_err(|_| ErrorCode::VaultMissing)
+        .map(|rows| {
+            rows.into_iter()
+                .map(|m| ConnectionRef {
+                    connection_id: m.connection_id,
+                    provider: m.provider,
+                    label: m.label,
+                })
+                .collect()
+        })
+}
+
+#[cfg(test)]
+static FORCE_VAULT_MISS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(test)]
+pub(crate) fn force_vault_miss(on: bool) {
+    FORCE_VAULT_MISS.store(on, std::sync::atomic::Ordering::SeqCst);
 }
 
 #[cfg(test)]
@@ -167,6 +183,7 @@ mod tests {
 
     #[test]
     fn vault_refs_load_when_sqlite_has_rows() {
+        let _g = crate::MCP_TEST_ENV_LOCK.lock().expect("lock");
         let tmp = tempfile::tempdir().expect("tmp");
         std::env::set_var(persist_sqlite::CONFIG_DIR, tmp.path());
         std::env::set_var(
@@ -184,7 +201,7 @@ mod tests {
             &SecretString::new("sk-test"),
         )
         .expect("put");
-        let refs = vault_connection_refs();
+        let refs = vault_connection_refs().expect("refs");
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].connection_id, "conn-live");
         assert_eq!(refs[0].provider, "openai");
@@ -192,5 +209,14 @@ mod tests {
         assert!(!dbg.contains("sk-test"));
         std::env::remove_var(persist_sqlite::CONFIG_DIR);
         std::env::remove_var(vault::VAULT_KEY);
+    }
+
+    #[test]
+    fn vault_refs_db_miss_is_vault_missing() {
+        let _g = crate::MCP_TEST_ENV_LOCK.lock().expect("lock");
+        force_vault_miss(true);
+        let err = vault_connection_refs().expect_err("db miss");
+        force_vault_miss(false);
+        assert_eq!(err, ErrorCode::VaultMissing);
     }
 }

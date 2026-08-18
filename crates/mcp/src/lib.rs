@@ -21,3 +21,6 @@ pub mod workspace_tools;
 
 pub use server::McpServer;
 pub use tool_schemas::tool_input_schemas;
+
+#[cfg(test)]
+pub(crate) static MCP_TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

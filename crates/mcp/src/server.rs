@@ -145,17 +145,27 @@ impl McpServer {
     /// List vault connection metadata only (no secrets; ambient-safe).
     #[tool(description = "List vault connection metadata (id/provider/label; no secrets)")]
     async fn connections_list(&self) -> Result<String, McpError> {
-        let connections: Vec<_> = crate::live::vault_connection_refs()
-            .into_iter()
-            .map(|c| {
-                json!({
-                    "connection_id": c.connection_id,
-                    "provider": c.provider,
-                    "label": c.label,
-                })
+        match crate::live::vault_connection_refs() {
+            Ok(refs) => {
+                let connections: Vec<_> = refs
+                    .into_iter()
+                    .map(|c| {
+                        json!({
+                            "connection_id": c.connection_id,
+                            "provider": c.provider,
+                            "label": c.label,
+                        })
+                    })
+                    .collect();
+                Ok(json!({ "connections": connections, "degraded": false }).to_string())
+            }
+            Err(code) => Ok(json!({
+                "connections": [],
+                "degraded": true,
+                "degrade_reason": code.as_str(),
             })
-            .collect();
-        Ok(json!({ "connections": connections }).to_string())
+            .to_string()),
+        }
     }
 
     /// Query redacted invoke audit events (`sak528-b`).

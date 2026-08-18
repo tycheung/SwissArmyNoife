@@ -6,8 +6,6 @@ use serde_json::Value;
 use types::{ErrorCode, InvokeResp};
 use uuid::Uuid;
 
-static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 fn sample_bind(offer_id: &str) -> BindArgs {
     BindArgs {
         offer_id: offer_id.into(),
@@ -20,7 +18,7 @@ fn sample_bind(offer_id: &str) -> BindArgs {
 }
 
 fn test_server() -> (McpServer, tempfile::TempDir) {
-    let guard = TEST_ENV_LOCK.lock().expect("env lock");
+    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
     let tmp = tempfile::tempdir().expect("tmp");
     std::env::set_var(crate::live::LLM_BACKEND, "echo");
     std::env::set_var(crate::live::SANDBOX_BACKEND, "none");
@@ -126,14 +124,32 @@ async fn rate_limit_status_reports_unlimited_or_remaining() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)]
 async fn connections_list_metadata_only() {
     let (server, tmp) = test_server();
+    let _g = crate::MCP_TEST_ENV_LOCK.lock().expect("lock");
     // Empty vault → empty list (ambient-safe).
     let raw = server.connections_list().await.expect("list");
     let v: Value = serde_json::from_str(&raw).expect("json");
     assert!(v["connections"].as_array().expect("arr").is_empty() || v["connections"].is_array());
     assert!(!raw.contains("secret"));
+    assert_eq!(v["degraded"], false);
     let _ = tmp;
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn connections_list_surfaces_degrade_reason() {
+    let (server, _tmp) = test_server();
+    let _g = crate::MCP_TEST_ENV_LOCK.lock().expect("lock");
+    crate::live::force_vault_miss(true);
+    let raw = server.connections_list().await.expect("list");
+    crate::live::force_vault_miss(false);
+    assert!(!raw.contains("sk-"), "no secrets: {raw}");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert_eq!(v["degraded"], true);
+    assert_eq!(v["degrade_reason"], "vault.missing");
+    assert!(v["connections"].as_array().expect("arr").is_empty());
 }
 
 #[tokio::test]
