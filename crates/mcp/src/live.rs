@@ -9,7 +9,7 @@ use offer_compute::{ComputeNodeOffer, ComputePlane, ComputeWorkOffer};
 use offer_egress::{EgressCheckOffer, EgressFetchOffer};
 use offer_eval::EvalRunOffer;
 use offer_llm::{
-    ChatProviders, ConnectionRef, EchoChatProvider, LlmChatOffer, LlmEmbedOffer,
+    ChatProviders, ConnectionRef, EchoChatProvider, EmbedProviders, LlmChatOffer, LlmEmbedOffer,
     LlmOllamaManageOffer, LlmPreflightOffer, LlmResolveOffer, LlmTelemetryOffer,
 };
 use offer_memory::{
@@ -19,7 +19,9 @@ use offer_research::{ResearchBriefOffer, ResearchFetchOffer};
 use offer_sandbox::{FilesystemJail, SandboxJailOffer};
 use offer_tools::{ToolsLoopOffer, ToolsRegistryOffer};
 use provider_anthropic::AnthropicProvider;
-use provider_core::{ChatRequest, ChatResponse, ProviderError};
+use provider_core::{
+    ChatRequest, ChatResponse, EmbedRequest, EmbedResponse, LlmProvider, ProviderError,
+};
 use provider_ollama::OllamaProvider;
 use provider_openai::OpenAiProvider;
 use types::ErrorCode;
@@ -72,6 +74,26 @@ impl McpLlmRouter {
             }
         };
         Self { mode }
+    }
+
+    fn default_provider(&self) -> &'static str {
+        match &self.mode {
+            LlmMode::Echo(_) => "echo",
+            LlmMode::Live { .. } => "ollama",
+        }
+    }
+}
+
+/// [`LlmProvider`] view of [`McpLlmRouter`] for `memory.embed` (`sak571-c`).
+pub struct RouterAsLlm(McpLlmRouter);
+
+impl LlmProvider for RouterAsLlm {
+    async fn chat(&self, req: ChatRequest) -> Result<ChatResponse, ProviderError> {
+        ChatProviders::chat(&self.0, self.0.default_provider(), req).await
+    }
+
+    async fn embed(&self, req: EmbedRequest) -> Result<EmbedResponse, ProviderError> {
+        EmbedProviders::embed(&self.0, self.0.default_provider(), req).await
     }
 }
 
@@ -137,10 +159,44 @@ impl ChatProviders for McpLlmRouter {
     }
 }
 
+impl EmbedProviders for McpLlmRouter {
+    async fn embed(
+        &self,
+        provider: &str,
+        req: EmbedRequest,
+    ) -> Result<EmbedResponse, ProviderError> {
+        match &self.mode {
+            LlmMode::Echo(echo) => EmbedProviders::embed(echo, provider, req).await,
+            LlmMode::Live {
+                ollama,
+                openai,
+                anthropic,
+            } => match provider {
+                "ollama" => EmbedProviders::embed(ollama, provider, req).await,
+                "openai" => match openai {
+                    Some(p) => EmbedProviders::embed(p, provider, req).await,
+                    None => Err(ProviderError::Unreachable(
+                        "openai: set OPENAI_API_KEY".into(),
+                    )),
+                },
+                "anthropic" => match anthropic {
+                    Some(p) => EmbedProviders::embed(p, provider, req).await,
+                    None => Err(ProviderError::Unreachable(
+                        "anthropic: set ANTHROPIC_API_KEY".into(),
+                    )),
+                },
+                other => Err(ProviderError::SchemaInvalid(format!(
+                    "unsupported provider: {other}"
+                ))),
+            },
+        }
+    }
+}
+
 /// Process-local runnable offers for MCP dispatch.
 pub struct LiveOffers {
     pub llm: LlmChatOffer<McpLlmRouter>,
-    pub llm_embed: LlmEmbedOffer<EchoChatProvider>,
+    pub llm_embed: LlmEmbedOffer<McpLlmRouter>,
     pub llm_resolve: LlmResolveOffer,
     pub llm_preflight: LlmPreflightOffer,
     pub llm_ollama_manage: LlmOllamaManageOffer,
@@ -151,7 +207,7 @@ pub struct LiveOffers {
     pub egress_fetch: EgressFetchOffer<offer_egress::ReqwestGet>,
     pub memory_index: MemoryIndexOffer,
     pub memory_search: MemorySearchOffer,
-    pub memory_embed: MemoryEmbedOffer<EchoChatProvider>,
+    pub memory_embed: MemoryEmbedOffer<RouterAsLlm>,
     pub memory_scope: MemoryScopeOffer,
     pub tools_registry: ToolsRegistryOffer,
     pub tools_loop: ToolsLoopOffer,
@@ -197,8 +253,7 @@ impl LiveOffers {
         let sandbox_jail = SandboxJailOffer::new(jail_fs)?.with_backend(sandbox.backend_label());
         Ok(Self {
             llm: LlmChatOffer::new(McpLlmRouter::from_env(), connections.clone())?,
-            // Echo embed vectors until live provider routing lands with MCP tool (sak523-b).
-            llm_embed: LlmEmbedOffer::new(EchoChatProvider)?,
+            llm_embed: LlmEmbedOffer::new(McpLlmRouter::from_env())?,
             llm_resolve: LlmResolveOffer::new(connections)?,
             llm_preflight: LlmPreflightOffer::new(
                 Arc::new(crate::capacity_fit::CapacityFitAdvisor::from_env()),
@@ -212,7 +267,7 @@ impl LiveOffers {
             egress_fetch: EgressFetchOffer::new()?,
             memory_index: MemoryIndexOffer::new(Arc::clone(&plane))?,
             memory_search: MemorySearchOffer::new(plane)?,
-            memory_embed: MemoryEmbedOffer::new(EchoChatProvider)?,
+            memory_embed: MemoryEmbedOffer::new(RouterAsLlm(McpLlmRouter::from_env()))?,
             memory_scope: MemoryScopeOffer::new()?,
             tools_registry: ToolsRegistryOffer::with_defaults()?,
             tools_loop: ToolsLoopOffer::with_defaults()?,
@@ -307,5 +362,41 @@ mod tests {
         assert!(!dbg.contains("sk-test"));
         std::env::remove_var(persist_sqlite::CONFIG_DIR);
         std::env::remove_var(vault::VAULT_KEY);
+    }
+
+    #[tokio::test]
+    async fn echo_backend_embed_is_ci_safe() {
+        std::env::set_var(LLM_BACKEND, "echo");
+        let router = McpLlmRouter::from_env();
+        let resp = EmbedProviders::embed(
+            &router,
+            "ollama",
+            EmbedRequest {
+                model: "nomic".into(),
+                inputs: vec!["ab".into()],
+            },
+        )
+        .await
+        .expect("echo embed");
+        assert!((resp.vectors[0][0] - 2.0).abs() < f32::EPSILON);
+        std::env::remove_var(LLM_BACKEND);
+    }
+
+    #[tokio::test]
+    async fn memory_embed_uses_router_echo_vectors() {
+        std::env::set_var(LLM_BACKEND, "echo");
+        let as_llm = RouterAsLlm(McpLlmRouter::from_env());
+        let resp = LlmProvider::embed(
+            &as_llm,
+            EmbedRequest {
+                model: "echo-embed".into(),
+                inputs: vec!["abc".into()],
+            },
+        )
+        .await
+        .expect("memory embed path");
+        assert!(!resp.vectors.is_empty());
+        assert!(resp.vectors[0].iter().any(|x| *x != 0.0));
+        std::env::remove_var(LLM_BACKEND);
     }
 }

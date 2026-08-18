@@ -8,12 +8,14 @@
     "offer": "llm.embed",
     "args": {
       "inputs": ["ab"],
-      "model": "echo"
+      "model": "echo",
+      "provider": "echo"
     }
   },
   "expect": {
     "status": "ok",
     "result": {
+      "provider": "echo",
       "model": "echo",
       "vectors": [[2.0, 1.0]]
     },

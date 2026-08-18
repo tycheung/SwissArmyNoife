@@ -1,9 +1,10 @@
 //! Load Nimbusware llm-routing golden fixtures (`sak142-a` / `sak142-b` / `sak142-c`).
 
-use offer_llm::{resolve, ConnectionRef, EchoChatProvider, ResolveHint};
+use control::Offer;
+use offer_llm::{resolve, ConnectionRef, EchoChatProvider, LlmEmbedOffer, ResolveHint};
 use provider_core::{ChatMessage, ChatRequest, ChatRole, EmbedRequest, LlmProvider};
 use serde_json::Value;
-use types::{load_offer_fixture, ErrorCode};
+use types::{load_offer_fixture, BindingId, ErrorCode, InvokeId, InvokeReq, InvokeResp};
 
 const ECHO_FIXTURES: &[&str] = &[
     "llm-routing/echo-chat.json",
@@ -150,6 +151,28 @@ async fn llm_embed_fixture_matches_echo_provider() {
             *expect,
             "{name}"
         );
+    }
+}
+
+#[tokio::test]
+async fn llm_embed_offer_matches_echo_fixture() {
+    let fix = load("llm-routing/echo-embed.json");
+    let offer = LlmEmbedOffer::new(EchoChatProvider).expect("offer");
+    let resp = offer
+        .invoke(InvokeReq {
+            binding_id: BindingId::new(),
+            args: fix["request"]["args"].clone(),
+            invoke_id: Some(InvokeId::new()),
+            offer: None,
+        })
+        .await;
+    match resp {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["vectors"], fix["expect"]["result"]["vectors"]);
+            assert_eq!(result["provider"], fix["expect"]["result"]["provider"]);
+            assert_eq!(result["model"], fix["expect"]["result"]["model"]);
+        }
+        other @ InvokeResp::Error { .. } => panic!("{other:?}"),
     }
 }
 

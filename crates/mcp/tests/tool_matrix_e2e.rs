@@ -784,7 +784,8 @@ async fn sandbox_exec_on_backend(
             );
         } else {
             assert!(
-                text.contains("\"status\":\"ok\"") && text.to_lowercase().contains("matrix-backend"),
+                text.contains("\"status\":\"ok\"")
+                    && text.to_lowercase().contains("matrix-backend"),
                 "{backend} sandbox_exec={text}"
             );
         }

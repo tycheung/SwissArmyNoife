@@ -1,29 +1,31 @@
-//! `llm.embed` offer: provider embed → JSON result.
+//! `llm.embed` offer: named-provider embed → JSON result.
 
 use control::{CatalogEntry, Offer};
-use provider_core::{EmbedRequest, LlmProvider, ProviderError};
+use provider_core::{EmbedRequest, ProviderError};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
-/// First-party `llm.embed` offer.
+use crate::EmbedProviders;
+
+/// First-party `llm.embed` offer backed by [`EmbedProviders`].
 pub struct LlmEmbedOffer<P> {
     entry: CatalogEntry,
-    provider: P,
+    providers: P,
 }
 
 impl<P> LlmEmbedOffer<P> {
     /// # Errors
     /// [`ErrorCode::SchemaInvalid`] when offer id is empty.
-    pub fn new(provider: P) -> Result<Self, ErrorCode> {
+    pub fn new(providers: P) -> Result<Self, ErrorCode> {
         Ok(Self {
             entry: CatalogEntry::new("llm.embed", "0.1.0")?,
-            provider,
+            providers,
         })
     }
 }
 
-impl<P: LlmProvider + Send + Sync> Offer for LlmEmbedOffer<P> {
+impl<P: EmbedProviders + Send + Sync> Offer for LlmEmbedOffer<P> {
     fn catalog_entry(&self) -> &CatalogEntry {
         &self.entry
     }
@@ -38,7 +40,7 @@ impl<P: LlmProvider + Send + Sync> Offer for LlmEmbedOffer<P> {
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
         let invoke_id = req.invoke_id.unwrap_or_default();
-        match run_embed(&self.provider, &req.args).await {
+        match run_embed(&self.providers, &req.args).await {
             Ok(result) => InvokeResp::ok(invoke_id, result),
             Err((code, message)) => InvokeResp::Error {
                 invoke_id: Some(invoke_id),
@@ -62,10 +64,14 @@ struct EmbedArgs {
     inputs: Vec<String>,
     #[serde(default)]
     model: Option<String>,
+    /// Resolved provider id (`ollama`, `openai`, `echo`). Defaults to `ollama`
+    /// (echo routers ignore the name).
+    #[serde(default)]
+    provider: Option<String>,
 }
 
-async fn run_embed<P: LlmProvider>(
-    provider: &P,
+async fn run_embed<P: EmbedProviders>(
+    providers: &P,
     args: &Value,
 ) -> Result<Value, (ErrorCode, String)> {
     let parsed: EmbedArgs = serde_json::from_value(args.clone())
@@ -74,14 +80,19 @@ async fn run_embed<P: LlmProvider>(
         return Err((ErrorCode::SchemaInvalid, "inputs must be non-empty".into()));
     }
     let model = parsed.model.unwrap_or_else(|| "default".into());
-    let resp = provider
-        .embed(EmbedRequest {
-            model: model.clone(),
-            inputs: parsed.inputs,
-        })
+    let provider = parsed.provider.unwrap_or_else(|| "ollama".into());
+    let resp = providers
+        .embed(
+            &provider,
+            EmbedRequest {
+                model: model.clone(),
+                inputs: parsed.inputs,
+            },
+        )
         .await
         .map_err(|e: ProviderError| (e.to_error_code(), e.to_string()))?;
     Ok(json!({
+        "provider": provider,
         "model": resp.model.unwrap_or(model),
         "vectors": resp.vectors,
     }))
@@ -90,7 +101,7 @@ async fn run_embed<P: LlmProvider>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::EchoChatProvider;
+    use crate::{EchoChatProvider, FakeEmbedProviders};
     use types::InvokeId;
 
     #[tokio::test]
@@ -107,6 +118,27 @@ mod tests {
         match resp {
             InvokeResp::Ok { result, .. } => {
                 assert_eq!(result["vectors"][0][0], 2.0);
+            }
+            other @ InvokeResp::Error { .. } => panic!("{other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn named_provider_reaches_router() {
+        let fake = FakeEmbedProviders::default();
+        let offer = LlmEmbedOffer::new(fake.clone()).expect("offer");
+        let resp = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                args: json!({ "inputs": ["z"], "provider": "openai" }),
+                invoke_id: Some(InvokeId::new()),
+                offer: None,
+            })
+            .await;
+        match resp {
+            InvokeResp::Ok { result, .. } => {
+                assert_eq!(result["provider"], "openai");
+                assert_eq!(fake.last_provider().as_deref(), Some("openai"));
             }
             other @ InvokeResp::Error { .. } => panic!("{other:?}"),
         }
