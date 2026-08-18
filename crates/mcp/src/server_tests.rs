@@ -263,6 +263,54 @@ async fn bind_invoke_llm_embed_echo_backend() {
 }
 
 #[tokio::test]
+async fn bind_survives_mcp_restart() {
+    let (server, tmp) = test_server();
+    let bound = server
+        .bind(Parameters(sample_bind("llm.embed")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    drop(server);
+
+    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
+    std::env::set_var(crate::live::LLM_BACKEND, "echo");
+    std::env::set_var(crate::live::SANDBOX_BACKEND, "none");
+    std::env::set_var("CAPACITY_PROBE", "fake");
+    std::env::set_var("SAK_RATE_LIMIT_PER_MIN", "0");
+    std::env::set_var(::env::CONFIG_DIR, tmp.path());
+    let server2 = McpServer::new();
+    drop(guard);
+
+    let health: Value =
+        serde_json::from_str(&server2.broker_health().await.expect("health")).expect("json");
+    assert!(
+        health["bindings"].as_u64().unwrap_or(0) >= 1,
+        "hydrated bindings: {health}"
+    );
+
+    let raw = server2
+        .llm_embed(Parameters(crate::tool_args::LlmEmbedArgs {
+            binding_id: binding_id.clone(),
+            inputs: vec!["ab".into()],
+            model: None,
+        }))
+        .await
+        .expect("llm_embed after restart");
+    let resp: InvokeResp = serde_json::from_str(&raw).expect("InvokeResp");
+    match resp {
+        InvokeResp::Ok { result, .. } => {
+            assert_eq!(result["vectors"][0][0], 2.0);
+        }
+        InvokeResp::Error { code, message, .. } => {
+            panic!("unexpected error {code}: {message}")
+        }
+    }
+}
+
+#[tokio::test]
 async fn bind_invoke_llm_resolve_provider_hint() {
     let (server, _tmp) = test_server();
     let bound = server

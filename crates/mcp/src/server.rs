@@ -1,7 +1,7 @@
 //! MCP server state, tools, and handlers.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::live::LiveOffers;
 use crate::resources::{list_resources, read_resource};
@@ -19,8 +19,8 @@ use crate::tool_args::{
 use crate::util::{expires_unix, parse_binding_id, serialize_resp};
 use crate::workspace_tools::boot_fs_shell;
 use control::{
-    resolve_policy, ApiKeyStore, AuditLog, BindRequest, BindingStore, BrokerHealthOffer,
-    IdempotencyStore, PolicyEngine, ProvisionStore, RateLimiter,
+    resolve_policy, ApiKeyStore, AuditLog, BindRequest, BindingRecord, BindingStore,
+    BrokerHealthOffer, IdempotencyStore, PolicyEngine, Principal, ProvisionStore, RateLimiter,
 };
 use module_registry::ModuleRuntime;
 use offer_tools::{FsTools, HostShellRunner, ShellTools};
@@ -32,7 +32,7 @@ use rmcp::{
 };
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
-use types::OfferId;
+use types::{BindingId, OfferId};
 
 use crate::health_snap::McpHealthSnapshot;
 use crate::progress::notify_progress;
@@ -84,7 +84,7 @@ impl McpServer {
             control::CatalogEntry::new("broker.health", "0.1.0").expect("broker.health id"),
         );
         let catalog = Arc::new(catalog);
-        let bindings = Arc::new(Mutex::new(BindingStore::new()));
+        let bindings = Arc::new(Mutex::new(load_bindings()));
         let policy = Arc::new(PolicyEngine::ambient());
         let broker_health = Arc::new(
             BrokerHealthOffer::new(Arc::new(McpHealthSnapshot {
@@ -382,6 +382,7 @@ impl McpServer {
             policy_json: policy_json.clone(),
             ttl: Duration::from_secs(ttl_secs),
         });
+        persist_binding(&record);
         if let Some(ref key) = idempotency_key {
             self.idempotency.lock().expect("idempotency lock").record(
                 key,
@@ -422,6 +423,7 @@ impl McpServer {
         let _ = self
             .apply_offer_unbind(removed.offer_id.as_str(), removed.binding_id)
             .await;
+        forget_binding(removed.binding_id);
         Ok(json!({
             "binding_id": removed.binding_id.to_string(),
             "offer_id": removed.offer_id.as_str(),
@@ -468,6 +470,11 @@ impl McpServer {
             &policy,
         )
         .map_err(|code| McpError::invalid_params(format!("{code}: bind_pack failed"), None))?;
+        for (_, binding_id) in &pack {
+            if let Ok(rec) = store.get(*binding_id) {
+                persist_binding(rec);
+            }
+        }
         drop(store);
         let mut bindings = Vec::with_capacity(pack.len());
         for (offer_id, binding_id) in &pack {
@@ -942,6 +949,70 @@ impl ServerHandler for McpServer {
         let store = self.bindings.lock().await;
         read_resource(&self.catalog, &store, &request.uri)
     }
+}
+
+fn load_bindings() -> BindingStore {
+    let mut store = BindingStore::new();
+    let Ok(conn) = persist_sqlite::open_default() else {
+        return store;
+    };
+    let Ok(rows) = persist_sqlite::list_bindings(&conn) else {
+        return store;
+    };
+    let now = SystemTime::now();
+    for row in rows {
+        let Some(rec) = record_from_row(&row) else {
+            continue;
+        };
+        if rec.is_expired(now) {
+            continue;
+        }
+        store.insert_record(rec);
+    }
+    store
+}
+
+fn persist_binding(record: &BindingRecord) {
+    let Ok(conn) = persist_sqlite::open_default() else {
+        tracing::warn!("binding persist: open_default failed");
+        return;
+    };
+    let principal = if record.principal.kind.as_str() == "api_key" {
+        format!("api_key:{}", record.principal.id)
+    } else {
+        record.principal.id.clone()
+    };
+    let policy_json = serde_json::to_string(&record.policy_json).unwrap_or_else(|_| "{}".into());
+    let expires_at_unix = i64::try_from(expires_unix(record.expires_at)).unwrap_or(i64::MAX);
+    let row = persist_sqlite::BindingRow {
+        binding_id: record.binding_id.to_string(),
+        offer_id: record.offer_id.as_str().to_string(),
+        principal,
+        policy_json,
+        expires_at_unix,
+    };
+    if let Err(e) = persist_sqlite::put_binding(&conn, &row) {
+        tracing::warn!("binding persist: {e}");
+    }
+}
+
+fn forget_binding(id: BindingId) {
+    let Ok(conn) = persist_sqlite::open_default() else {
+        return;
+    };
+    let _ = persist_sqlite::delete_binding(&conn, &id.to_string());
+}
+
+fn record_from_row(row: &persist_sqlite::BindingRow) -> Option<BindingRecord> {
+    let uuid = uuid::Uuid::parse_str(&row.binding_id).ok()?;
+    let expires_at = UNIX_EPOCH + Duration::from_secs(u64::try_from(row.expires_at_unix).ok()?);
+    Some(BindingRecord {
+        binding_id: BindingId::from_uuid(uuid),
+        offer_id: OfferId::new(&row.offer_id).ok()?,
+        principal: Principal::from_bind_arg(&row.principal),
+        policy_json: serde_json::from_str(&row.policy_json).ok()?,
+        expires_at,
+    })
 }
 
 #[cfg(test)]

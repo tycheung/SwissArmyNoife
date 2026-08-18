@@ -62,6 +62,11 @@ impl BindingStore {
         record
     }
 
+    /// Hydrate a previously persisted binding (`sak572-a`).
+    pub fn insert_record(&mut self, record: BindingRecord) {
+        self.bindings.insert(record.binding_id, record);
+    }
+
     /// Fetch a live (non-expired) binding.
     ///
     /// # Errors
@@ -190,5 +195,16 @@ mod tests {
             record.principal.kind,
             crate::principal::PrincipalKind::ApiKey
         );
+    }
+
+    #[test]
+    fn insert_record_hydrates_existing_id() {
+        let mut store = BindingStore::new();
+        let live = store.bind(sample_req(Duration::from_secs(60)));
+        let mut other = BindingStore::new();
+        other.insert_record(live.clone());
+        let got = other.get(live.binding_id).expect("hydrated");
+        assert_eq!(got.offer_id.as_str(), "llm.chat");
+        assert_eq!(got.binding_id, live.binding_id);
     }
 }
