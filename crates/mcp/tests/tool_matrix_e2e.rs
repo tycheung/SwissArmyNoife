@@ -720,6 +720,79 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
+#[tokio::test]
+async fn sandbox_backend_matrix_none_stub_docker() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_mcp");
+    for backend in ["none", "stub"] {
+        sandbox_exec_on_backend(bin, backend, true).await?;
+    }
+    let docker_up = std::process::Command::new("docker")
+        .args(["info"])
+        .output()
+        .is_ok_and(|o| o.status.success());
+    if docker_up {
+        sandbox_exec_on_backend(bin, "docker", true).await?;
+    } else {
+        eprintln!("sak560-a: skip docker matrix row (docker unavailable)");
+    }
+    Ok(())
+}
+
+async fn sandbox_exec_on_backend(
+    bin: &str,
+    backend: &str,
+    expect_ok: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tmp = tempfile::tempdir()?;
+    let client = ()
+        .serve(TokioChildProcess::new(Command::new(bin).configure(|c| {
+            c.env("CONFIG_DIR", tmp.path())
+                .env("LLM_BACKEND", "echo")
+                .env("SANDBOX_BACKEND", backend)
+                .env("CAPACITY_PROBE", "fake");
+        }))?)
+        .await?;
+    let bound = call(
+        &client,
+        "bind",
+        json!({
+            "offer_id": "sandbox.exec",
+            "ttl_secs": 120,
+            "policy": { "sandbox": { "shell": true } }
+        }),
+    )
+    .await?;
+    let id = binding_id(&bound)?;
+    let argv = if backend == "stub" {
+        json!(["echo", "matrix-backend"])
+    } else if cfg!(windows) {
+        json!(["cmd", "/C", "echo matrix-backend"])
+    } else {
+        json!(["echo", "matrix-backend"])
+    };
+    let text = call(
+        &client,
+        "sandbox_exec",
+        json!({ "binding_id": id, "argv": argv, "cwd": "." }),
+    )
+    .await?;
+    if expect_ok {
+        if backend == "stub" {
+            assert!(
+                text.contains("stub:echo") && text.contains("matrix-backend"),
+                "{backend} sandbox_exec={text}"
+            );
+        } else {
+            assert!(
+                text.contains("\"status\":\"ok\"") && text.to_lowercase().contains("matrix-backend"),
+                "{backend} sandbox_exec={text}"
+            );
+        }
+    }
+    client.cancel().await?;
+    Ok(())
+}
+
 async fn call(
     client: &Client,
     name: &str,

@@ -81,3 +81,53 @@ async fn sandbox_exec_docker_or_skip() -> Result<(), Box<dyn std::error::Error>>
     client.cancel().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn sandbox_exec_docker_cwd_escape_deny() -> Result<(), Box<dyn std::error::Error>> {
+    let bin = env!("CARGO_BIN_EXE_mcp");
+    let tmp = tempfile::tempdir()?;
+    let client = ()
+        .serve(TokioChildProcess::new(Command::new(bin).configure(|c| {
+            c.env("CONFIG_DIR", tmp.path())
+                .env("LLM_BACKEND", "echo")
+                .env("SANDBOX_BACKEND", "docker")
+                .env("CAPACITY_PROBE", "fake");
+        }))?)
+        .await?;
+
+    let bound = client
+        .call_tool(CallToolRequestParam {
+            name: "bind".into(),
+            arguments: Some(obj(json!({
+                "offer_id": "sandbox.exec",
+                "ttl_secs": 120
+            }))),
+        })
+        .await?;
+    let binding_id = serde_json::from_str::<Value>(&tool_text(&bound))?["binding_id"]
+        .as_str()
+        .expect("binding_id")
+        .to_owned();
+
+    let exec = client
+        .call_tool(CallToolRequestParam {
+            name: "sandbox_exec".into(),
+            arguments: Some(obj(json!({
+                "binding_id": binding_id,
+                "argv": ["echo", "nope"],
+                "cwd": ".."
+            }))),
+        })
+        .await?;
+    let text = tool_text(&exec);
+    assert!(
+        text.contains("path_escape") || text.contains("sandbox.violation"),
+        "expected cwd escape deny, got {text}"
+    );
+    assert!(
+        !text.contains("\"status\":\"ok\""),
+        "escape must not succeed: {text}"
+    );
+    client.cancel().await?;
+    Ok(())
+}
