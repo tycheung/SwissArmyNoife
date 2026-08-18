@@ -65,3 +65,38 @@ async fn audit_list_filters_and_keeps_redaction() {
     let v: Value = serde_json::from_slice(&body).expect("json");
     assert!(v["events"].as_array().expect("arr").is_empty());
 }
+
+#[cfg(feature = "postgres")]
+#[tokio::test]
+async fn audit_list_from_pg_audit_store() {
+    use persist_postgres::ports::{AuditEventRow, AuditStore, MemoryAuditStore};
+    use std::sync::Arc;
+
+    let store = MemoryAuditStore::new();
+    store
+        .append_event(&AuditEventRow {
+            event_id: "00000000-0000-0000-0000-0000000000ae".into(),
+            binding_id: "00000000-0000-0000-0000-0000000000ab".into(),
+            kind: "llm.embed".into(),
+            recorded_at_unix: 1_700_000_000,
+        })
+        .expect("append");
+    let state = AppState::new().with_audit_store(Arc::new(store));
+    let app = app_with_state(state);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/sak/audit")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("list");
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024)
+        .await
+        .expect("bytes");
+    let v: Value = serde_json::from_slice(&body).expect("json");
+    assert_eq!(v["backend"], "postgres");
+    assert_eq!(v["events"][0]["offer_id"], "llm.embed");
+}

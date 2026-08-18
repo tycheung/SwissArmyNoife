@@ -19,6 +19,15 @@ pub trait AuditStore: Send + Sync {
     /// # Errors
     /// Returns [`PersistPortError`] when the backing store fails.
     fn append_event(&self, row: &AuditEventRow) -> PortResult<()>;
+
+    /// List events in append order (optional; default not implemented).
+    ///
+    /// # Errors
+    /// Returns [`PersistPortError`] when the backing store fails.
+    fn list_events(&self) -> PortResult<Vec<AuditEventRow>> {
+        let _ = self;
+        Err(PersistPortError::NotImplemented)
+    }
 }
 
 /// Test double that always returns [`PersistPortError::NotImplemented`].
@@ -61,6 +70,10 @@ impl AuditStore for MemoryAuditStore {
             .map_err(|_| PersistPortError::InvalidConfig("audit lock poisoned".into()))?;
         guard.push(row.clone());
         Ok(())
+    }
+
+    fn list_events(&self) -> PortResult<Vec<AuditEventRow>> {
+        self.events()
     }
 }
 

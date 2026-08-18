@@ -48,6 +48,19 @@ async fn get_binding(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
+    #[cfg(feature = "postgres")]
+    if let Some(pg) = &state.pg_bindings {
+        if let Ok(Some(row)) = pg.get_binding(&id) {
+            return Ok(Json(json!({
+                "binding_id": row.binding_id,
+                "offer_id": row.offer_id,
+                "principal": "local",
+                "principal_kind": "local",
+                "expires_at": u64::try_from(row.created_at_unix).unwrap_or(0),
+                "backend": "postgres",
+            })));
+        }
+    }
     let binding_id = uuid::Uuid::parse_str(&id)
         .map(BindingId::from_uuid)
         .map_err(|_| StatusCode::NOT_FOUND)?;

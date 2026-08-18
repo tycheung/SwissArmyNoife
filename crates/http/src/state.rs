@@ -49,6 +49,12 @@ pub struct AppState {
     /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070` / `sak572-c`).
     #[cfg(feature = "postgres")]
     pub pg_catalog: Option<Arc<dyn persist_postgres::ports::CatalogStore>>,
+    /// Live Postgres bindings (`sak572-d`); kept from the opened backend (not dropped).
+    #[cfg(feature = "postgres")]
+    pub pg_bindings: Option<Arc<dyn persist_postgres::ports::BindingStore>>,
+    /// Live Postgres audit (`sak572-d`); kept from the opened backend (not dropped).
+    #[cfg(feature = "postgres")]
+    pub pg_audit: Option<Arc<dyn persist_postgres::ports::AuditStore>>,
 }
 
 impl AppState {
@@ -78,6 +84,10 @@ impl AppState {
             rate_limiter: Arc::new(Mutex::new(RateLimiter::from_env())),
             #[cfg(feature = "postgres")]
             pg_catalog: None,
+            #[cfg(feature = "postgres")]
+            pg_bindings: None,
+            #[cfg(feature = "postgres")]
+            pg_audit: None,
         }
     }
 
@@ -86,6 +96,25 @@ impl AppState {
     #[must_use]
     pub fn with_catalog_store(mut self, store: Arc<dyn CatalogStore>) -> Self {
         self.pg_catalog = Some(store);
+        self
+    }
+
+    /// Inject a binding persist port (`sak572-d` tests).
+    #[cfg(feature = "postgres")]
+    #[must_use]
+    pub fn with_binding_store(
+        mut self,
+        store: Arc<dyn persist_postgres::ports::BindingStore>,
+    ) -> Self {
+        self.pg_bindings = Some(store);
+        self
+    }
+
+    /// Inject an audit persist port (`sak572-d` tests).
+    #[cfg(feature = "postgres")]
+    #[must_use]
+    pub fn with_audit_store(mut self, store: Arc<dyn persist_postgres::ports::AuditStore>) -> Self {
+        self.pg_audit = Some(store);
         self
     }
 
@@ -181,8 +210,10 @@ impl AppState {
         {
             match persist_postgres::try_open_from_env() {
                 Ok(Some(backend)) => {
-                    tracing::info!("persist backend: postgres (catalog store live)");
+                    tracing::info!("persist backend: postgres (catalog/bindings/audit live)");
                     state.pg_catalog = Some(Arc::new(backend.catalog));
+                    state.pg_bindings = Some(Arc::new(backend.bindings));
+                    state.pg_audit = Some(Arc::new(backend.audit));
                 }
                 Ok(None) => {}
                 Err(e) => {

@@ -40,6 +40,29 @@ fn event_json(ev: &AuditEvent) -> Value {
 }
 
 async fn list_audit(State(state): State<AppState>, Query(q): Query<AuditQuery>) -> Json<Value> {
+    #[cfg(feature = "postgres")]
+    if let Some(pg) = &state.pg_audit {
+        if let Ok(rows) = pg.list_events() {
+            let events: Vec<_> = rows
+                .into_iter()
+                .filter(|r| match q.offer_id.as_deref() {
+                    None => true,
+                    Some(want) => r.kind == want,
+                })
+                .map(|r| {
+                    json!({
+                        "invoke_id": r.event_id,
+                        "binding_id": r.binding_id,
+                        "offer_id": r.kind,
+                        "status": "ok",
+                        "created_at": u64::try_from(r.recorded_at_unix).unwrap_or(0),
+                        "backend": "postgres",
+                    })
+                })
+                .collect();
+            return Json(json!({ "events": events, "backend": "postgres" }));
+        }
+    }
     let since = q.since.map(|s| UNIX_EPOCH + Duration::from_secs(s));
     let audit = state.audit.lock().expect("audit lock");
     let events: Vec<_> = audit

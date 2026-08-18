@@ -105,6 +105,40 @@ async fn get_binding_found_and_missing() {
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
 }
 
+#[cfg(feature = "postgres")]
+#[tokio::test]
+async fn get_binding_from_pg_binding_store() {
+    use persist_postgres::ports::{BindingRow, BindingStore, MemoryBindingStore};
+    use std::sync::Arc;
+
+    let store = MemoryBindingStore::new();
+    store
+        .insert_binding(&BindingRow {
+            binding_id: "00000000-0000-0000-0000-0000000000aa".into(),
+            offer_id: "llm.embed".into(),
+            created_at_unix: 1_700_000_000,
+        })
+        .expect("insert");
+    let state = AppState::new().with_binding_store(Arc::new(store));
+    let app = app_with_state(state);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/sak/bindings/00000000-0000-0000-0000-0000000000aa")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let v: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["offer_id"], "llm.embed");
+    assert_eq!(v["backend"], "postgres");
+}
+
 #[tokio::test]
 async fn metrics_jsonl_export() {
     let state = AppState::new();
