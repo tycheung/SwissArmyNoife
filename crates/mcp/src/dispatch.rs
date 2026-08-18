@@ -155,7 +155,7 @@ impl McpServer {
             }
         };
         if let Some(ev) = audit.events().last() {
-            crate::server::persist_audit(ev);
+            crate::persist::persist_audit(ev);
         }
         Ok(resp)
     }

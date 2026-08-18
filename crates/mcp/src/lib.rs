@@ -8,6 +8,7 @@ pub mod http_auth;
 pub mod live;
 pub mod live_llm;
 pub mod live_sandbox;
+mod persist;
 pub mod progress;
 pub mod resources;
 pub mod schema_json;
