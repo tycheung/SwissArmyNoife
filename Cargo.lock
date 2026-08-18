@@ -1566,6 +1566,7 @@ dependencies = [
  "offer-research",
  "offer-sandbox",
  "offer-tools",
+ "persist-postgres",
  "persist-sqlite",
  "provider-anthropic",
  "provider-core",
