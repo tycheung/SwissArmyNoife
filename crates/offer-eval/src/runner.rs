@@ -114,6 +114,9 @@ fn eval_one(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
         }
         "json_path" => eval_json_path(c),
         "regex" => eval_regex(c),
+        "numeric_tolerance" => eval_numeric_tolerance(c),
+        "contains_all" => eval_contains_set(c, true),
+        "contains_any" => eval_contains_set(c, false),
         other => Err((
             ErrorCode::SchemaInvalid,
             format!("check {}: unknown assert {other:?}", c.id),
@@ -173,6 +176,79 @@ fn eval_regex(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
         Value::Null
     } else {
         json!(format!("regex failed: {hay:?} !~ {pat:?}"))
+    };
+    Ok((ok, message))
+}
+
+fn as_f64(v: &Value, id: &str, field: &str) -> Result<f64, (ErrorCode, String)> {
+    v.as_f64().ok_or_else(|| {
+        (
+            ErrorCode::SchemaInvalid,
+            format!("check {id}: {field} must be numeric"),
+        )
+    })
+}
+
+fn eval_numeric_tolerance(c: &CheckSpec) -> Result<(bool, Value), (ErrorCode, String)> {
+    let actual = as_f64(&c.actual, &c.id, "actual")?;
+    let Some(expected_val) = c.expected.get("value") else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: numeric_tolerance expected.value required", c.id),
+        ));
+    };
+    let expected = as_f64(expected_val, &c.id, "expected.value")?;
+    let abs = c
+        .expected
+        .get("abs")
+        .map(|v| as_f64(v, &c.id, "abs"))
+        .transpose()?;
+    let rel = c
+        .expected
+        .get("rel")
+        .map(|v| as_f64(v, &c.id, "rel"))
+        .transpose()?;
+    if abs.is_none() && rel.is_none() {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: numeric_tolerance needs abs or rel", c.id),
+        ));
+    }
+    let delta = (actual - expected).abs();
+    let ok = abs.is_some_and(|a| delta <= a) || rel.is_some_and(|r| delta <= r * expected.abs());
+    let message = if ok {
+        Value::Null
+    } else {
+        json!(format!(
+            "numeric_tolerance failed: actual={actual} expected={expected} delta={delta}"
+        ))
+    };
+    Ok((ok, message))
+}
+
+fn eval_contains_set(c: &CheckSpec, all: bool) -> Result<(bool, Value), (ErrorCode, String)> {
+    let Some(actual) = c.actual.as_array() else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: contains_all/any requires array actual", c.id),
+        ));
+    };
+    let Some(expected) = c.expected.as_array() else {
+        return Err((
+            ErrorCode::SchemaInvalid,
+            format!("check {}: contains_all/any requires array expected", c.id),
+        ));
+    };
+    let ok = if all {
+        expected.iter().all(|e| actual.contains(e))
+    } else {
+        expected.iter().any(|e| actual.contains(e))
+    };
+    let message = if ok {
+        Value::Null
+    } else {
+        let kind = if all { "contains_all" } else { "contains_any" };
+        json!(format!("{kind} failed"))
     };
     Ok((ok, message))
 }
@@ -325,5 +401,78 @@ mod tests {
         .expect_err("invalid");
         assert_eq!(err.0, ErrorCode::SchemaInvalid);
         assert!(err.1.contains("invalid regex"));
+    }
+
+    #[test]
+    fn numeric_tolerance_abs_and_rel() {
+        let pass = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "n",
+                    "assert": "numeric_tolerance",
+                    "actual": 1.005,
+                    "expected": { "value": 1.0, "abs": 0.01 }
+                }]
+            }),
+            None,
+        )
+        .expect("pass");
+        assert_eq!(pass["passed"], true);
+        let fail = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "n",
+                    "assert": "numeric_tolerance",
+                    "actual": 2.0,
+                    "expected": { "value": 1.0, "rel": 0.01 }
+                }]
+            }),
+            None,
+        )
+        .expect("fail");
+        assert_eq!(fail["passed"], false);
+    }
+
+    #[test]
+    fn contains_all_and_any() {
+        let pass_all = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "a",
+                    "assert": "contains_all",
+                    "actual": ["x", "y", "z"],
+                    "expected": ["x", "z"]
+                }]
+            }),
+            None,
+        )
+        .expect("all");
+        assert_eq!(pass_all["passed"], true);
+        let pass_any = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "b",
+                    "assert": "contains_any",
+                    "actual": ["x"],
+                    "expected": ["q", "x"]
+                }]
+            }),
+            None,
+        )
+        .expect("any");
+        assert_eq!(pass_any["passed"], true);
+        let fail_all = run_checks(
+            &json!({
+                "checks": [{
+                    "id": "c",
+                    "assert": "contains_all",
+                    "actual": ["x"],
+                    "expected": ["x", "y"]
+                }]
+            }),
+            None,
+        )
+        .expect("fail all");
+        assert_eq!(fail_all["passed"], false);
     }
 }
