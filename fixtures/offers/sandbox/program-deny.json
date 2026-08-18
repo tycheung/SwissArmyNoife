@@ -1,0 +1,19 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "sandbox.exec",
+  "source": "hand-authored program allowlist deny (sak554-c)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000015",
+    "invoke_id": "00000000-0000-0000-0000-000000000016",
+    "offer": "sandbox.exec",
+    "args": {
+      "argv": ["python"],
+      "cwd": "."
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "policy.denied",
+    "message_contains": "policy.denied: sandbox.programs"
+  }
+}

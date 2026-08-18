@@ -191,3 +191,39 @@ async fn shell_wrapper_deny_fixture() {
         other => panic!("expected policy.denied, got {other:?}"),
     }
 }
+
+#[tokio::test]
+async fn program_deny_fixture() {
+    let fix = load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/program-deny.json")
+        .expect("fixture");
+    let needle = fix["expect"]["message_contains"]
+        .as_str()
+        .expect("message_contains");
+    assert_eq!(fix["expect"]["code"], "policy.denied");
+
+    let tmp = TempDir::new().expect("tempdir");
+    let backend = StubBackend::with_root(tmp.path()).expect("backend");
+    let offer = SandboxExecOffer::with_policy(
+        backend,
+        &json!({ "sandbox": { "programs": ["git", "cargo"] } }),
+    )
+    .expect("offer");
+    match offer
+        .invoke(InvokeReq {
+            binding_id: BindingId::new(),
+            args: fix["request"]["args"].clone(),
+            invoke_id: None,
+            offer: None,
+        })
+        .await
+    {
+        InvokeResp::Error {
+            code: ErrorCode::PolicyDenied,
+            message,
+            ..
+        } => {
+            assert!(message.contains(needle), "expected {needle:?} in {message}");
+        }
+        other => panic!("expected policy.denied, got {other:?}"),
+    }
+}
