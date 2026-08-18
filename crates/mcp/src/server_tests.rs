@@ -25,6 +25,7 @@ fn test_server() -> (McpServer, tempfile::TempDir) {
     std::env::set_var("CAPACITY_PROBE", "fake");
     std::env::set_var("SAK_RATE_LIMIT_PER_MIN", "0");
     std::env::set_var(::env::CONFIG_DIR, tmp.path());
+    std::env::remove_var(::env::DB_PATH);
     let server = McpServer::new();
     drop(guard);
     (server, tmp)
@@ -107,6 +108,53 @@ async fn audit_query_returns_redacted_events() {
         .unbind(Parameters(UnbindArgs { binding_id }))
         .await
         .expect("unbind");
+}
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn audit_query_survives_mcp_restart() {
+    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
+    let tmp = tempfile::tempdir().expect("tmp");
+    std::env::set_var(crate::live::LLM_BACKEND, "echo");
+    std::env::set_var(crate::live::SANDBOX_BACKEND, "none");
+    std::env::set_var("CAPACITY_PROBE", "fake");
+    std::env::set_var("SAK_RATE_LIMIT_PER_MIN", "0");
+    std::env::set_var(::env::CONFIG_DIR, tmp.path());
+    std::env::remove_var(::env::DB_PATH);
+    let server = McpServer::new();
+    let bound = server
+        .bind(Parameters(sample_bind("llm.embed")))
+        .await
+        .expect("bind");
+    let binding_id = serde_json::from_str::<Value>(&bound).expect("json")["binding_id"]
+        .as_str()
+        .expect("str")
+        .to_owned();
+    let _ = server
+        .llm_embed(Parameters(crate::tool_args::LlmEmbedArgs {
+            binding_id: binding_id.clone(),
+            inputs: vec!["ab".into()],
+            model: None,
+        }))
+        .await
+        .expect("llm_embed");
+    drop(server);
+    let server2 = McpServer::new();
+    drop(guard);
+
+    let raw = server2
+        .audit_query(Parameters(crate::tool_args::AuditQueryArgs {
+            offer_id: Some("llm.embed".into()),
+            since: None,
+        }))
+        .await
+        .expect("audit_query");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    let events = v["events"].as_array().expect("events");
+    assert!(
+        events.iter().any(|e| e["offer_id"] == "llm.embed"),
+        "persisted audit: {raw}"
+    );
 }
 
 #[tokio::test]
@@ -263,8 +311,17 @@ async fn bind_invoke_llm_embed_echo_backend() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)]
 async fn bind_survives_mcp_restart() {
-    let (server, tmp) = test_server();
+    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
+    let tmp = tempfile::tempdir().expect("tmp");
+    std::env::set_var(crate::live::LLM_BACKEND, "echo");
+    std::env::set_var(crate::live::SANDBOX_BACKEND, "none");
+    std::env::set_var("CAPACITY_PROBE", "fake");
+    std::env::set_var("SAK_RATE_LIMIT_PER_MIN", "0");
+    std::env::set_var(::env::CONFIG_DIR, tmp.path());
+    std::env::remove_var(::env::DB_PATH);
+    let server = McpServer::new();
     let bound = server
         .bind(Parameters(sample_bind("llm.embed")))
         .await
@@ -274,13 +331,6 @@ async fn bind_survives_mcp_restart() {
         .expect("str")
         .to_owned();
     drop(server);
-
-    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
-    std::env::set_var(crate::live::LLM_BACKEND, "echo");
-    std::env::set_var(crate::live::SANDBOX_BACKEND, "none");
-    std::env::set_var("CAPACITY_PROBE", "fake");
-    std::env::set_var("SAK_RATE_LIMIT_PER_MIN", "0");
-    std::env::set_var(::env::CONFIG_DIR, tmp.path());
     let server2 = McpServer::new();
     drop(guard);
 

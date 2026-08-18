@@ -1,6 +1,7 @@
 //! `SQLite` persistence for `SwissArmyNoife` (migrations + DB open).
 
 mod api_keys;
+mod audit;
 mod bindings;
 mod catalog;
 mod connections;
@@ -12,6 +13,7 @@ use rusqlite::Connection;
 use thiserror::Error;
 
 pub use api_keys::{get_api_key_by_hash, list_api_keys, put_api_key, revoke_api_key, ApiKeyDbRow};
+pub use audit::{list_audit, put_audit, AuditRow};
 pub use bindings::{delete_binding, get_binding, list_bindings, put_binding, BindingRow};
 pub use catalog::{get_offer, list_offers, upsert_offer, CatalogOfferRow};
 pub use connections::{

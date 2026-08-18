@@ -19,8 +19,9 @@ use crate::tool_args::{
 use crate::util::{expires_unix, parse_binding_id, serialize_resp};
 use crate::workspace_tools::boot_fs_shell;
 use control::{
-    resolve_policy, ApiKeyStore, AuditLog, BindRequest, BindingRecord, BindingStore,
-    BrokerHealthOffer, IdempotencyStore, PolicyEngine, Principal, ProvisionStore, RateLimiter,
+    resolve_policy, ApiKeyStore, AuditEvent, AuditLog, AuditStatus, BindRequest, BindingRecord,
+    BindingStore, BrokerHealthOffer, IdempotencyStore, PolicyEngine, Principal, ProvisionStore,
+    RateLimiter,
 };
 use module_registry::ModuleRuntime;
 use offer_tools::{FsTools, HostShellRunner, ShellTools};
@@ -32,7 +33,7 @@ use rmcp::{
 };
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
-use types::{BindingId, OfferId};
+use types::{BindingId, ErrorCode, InvokeId, OfferId};
 
 use crate::health_snap::McpHealthSnapshot;
 use crate::progress::notify_progress;
@@ -101,7 +102,7 @@ impl McpServer {
             bindings,
             provisions: Arc::new(Mutex::new(ProvisionStore::new())),
             policy,
-            audit: Arc::new(Mutex::new(AuditLog::new())),
+            audit: Arc::new(Mutex::new(load_audit())),
             offers,
             broker_health,
             api_keys,
@@ -970,6 +971,67 @@ fn load_bindings() -> BindingStore {
         store.insert_record(rec);
     }
     store
+}
+
+fn load_audit() -> AuditLog {
+    let mut log = AuditLog::new();
+    let Ok(conn) = persist_sqlite::open_default() else {
+        return log;
+    };
+    let Ok(rows) = persist_sqlite::list_audit(&conn) else {
+        return log;
+    };
+    for row in rows {
+        if let Some(ev) = audit_from_row(&row) {
+            log.append(ev);
+        }
+    }
+    log
+}
+
+pub(crate) fn persist_audit(event: &AuditEvent) {
+    let Ok(conn) = persist_sqlite::open_default() else {
+        tracing::warn!("audit persist: open_default failed");
+        return;
+    };
+    let created_at_unix = i64::try_from(expires_unix(event.created_at)).unwrap_or(0);
+    let detail_json = serde_json::to_string(&event.detail).unwrap_or_else(|_| "{}".into());
+    let row = persist_sqlite::AuditRow {
+        invoke_id: event.invoke_id.to_string(),
+        binding_id: event.binding_id.to_string(),
+        offer_id: event.offer_id.as_str().to_string(),
+        status: event.status.as_str().to_string(),
+        code: event.code.map(|c| c.as_str().to_string()),
+        detail_json,
+        created_at_unix,
+    };
+    if let Err(e) = persist_sqlite::put_audit(&conn, &row) {
+        tracing::warn!("audit persist: {e}");
+    }
+}
+
+fn audit_from_row(row: &persist_sqlite::AuditRow) -> Option<AuditEvent> {
+    let invoke_id = InvokeId::from_uuid(uuid::Uuid::parse_str(&row.invoke_id).ok()?);
+    let binding_id = BindingId::from_uuid(uuid::Uuid::parse_str(&row.binding_id).ok()?);
+    let status = if row.status == "error" {
+        AuditStatus::Error
+    } else {
+        AuditStatus::Ok
+    };
+    let code = row
+        .code
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<ErrorCode>(&format!("\"{raw}\"")).ok());
+    Some(AuditEvent {
+        invoke_id,
+        binding_id,
+        offer_id: OfferId::new(&row.offer_id).ok()?,
+        status,
+        code,
+        detail: serde_json::from_str(&row.detail_json).unwrap_or_else(|_| json!({})),
+        created_at: UNIX_EPOCH + Duration::from_secs(u64::try_from(row.created_at_unix).ok()?),
+        deleted_at: None,
+    })
 }
 
 fn persist_binding(record: &BindingRecord) {

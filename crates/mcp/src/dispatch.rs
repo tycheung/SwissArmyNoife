@@ -154,6 +154,9 @@ impl McpServer {
                 dispatcher.invoke(&echo, req).await
             }
         };
+        if let Some(ev) = audit.events().last() {
+            crate::server::persist_audit(ev);
+        }
         Ok(resp)
     }
 }
