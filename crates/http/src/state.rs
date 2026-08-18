@@ -16,7 +16,7 @@ use types::OfferId;
 use vault::VaultKey;
 
 #[cfg(feature = "postgres")]
-use persist_postgres::ports::PostgresCatalog;
+use persist_postgres::ports::CatalogStore;
 
 /// Vault-backed connection store (`SQLite` + key).
 pub struct VaultStore {
@@ -46,9 +46,9 @@ pub struct AppState {
     pub api_keys: Arc<ApiKeyStore>,
     /// Optional facade rate limit (`sak544-c`); unlimited by default.
     pub rate_limiter: Arc<Mutex<RateLimiter>>,
-    /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070`).
+    /// Live Postgres catalog when `SAK_PERSIST_BACKEND=postgres` + URL (`sak070` / `sak572-c`).
     #[cfg(feature = "postgres")]
-    pub pg_catalog: Option<Arc<PostgresCatalog>>,
+    pub pg_catalog: Option<Arc<dyn persist_postgres::ports::CatalogStore>>,
 }
 
 impl AppState {
@@ -79,6 +79,14 @@ impl AppState {
             #[cfg(feature = "postgres")]
             pg_catalog: None,
         }
+    }
+
+    /// Inject a catalog persist port (`sak572-c` tests / Postgres boot).
+    #[cfg(feature = "postgres")]
+    #[must_use]
+    pub fn with_catalog_store(mut self, store: Arc<dyn CatalogStore>) -> Self {
+        self.pg_catalog = Some(store);
+        self
     }
 
     /// Require `Authorization: Bearer …` matching `token` (`sak541-b` tests).

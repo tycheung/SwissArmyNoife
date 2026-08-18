@@ -15,8 +15,8 @@ pub use auth::{
     auth_middleware, bearer_authorized, token_from_env, HTTP_ALLOW_INSECURE_ENV, HTTP_TOKEN_ENV,
 };
 pub use routes::{
-    audit_router, bindings_router, capacity_router, chat_completions_router, compute_router,
-    connections_router, health_router, metrics_router, modules_router,
+    audit_router, bindings_router, capacity_router, catalog_router, chat_completions_router,
+    compute_router, connections_router, health_router, metrics_router, modules_router,
 };
 pub use sse::{encode_completion_stream, encode_done, encode_error, encode_text_delta};
 pub use state::AppState;
@@ -33,6 +33,7 @@ pub fn app_with_state(state: AppState) -> Router {
     Router::new()
         .merge(health_router())
         .merge(modules_router())
+        .merge(catalog_router())
         .merge(capacity_router())
         .merge(compute_router())
         .merge(bindings_router())
