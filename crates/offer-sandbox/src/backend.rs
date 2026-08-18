@@ -1,6 +1,6 @@
 //! Sandbox exec backends. `none` = host+jail; `stub` = no process spawn.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use thiserror::Error;
@@ -66,6 +66,28 @@ pub(crate) fn validate_argv(argv: &[String]) -> Result<&str, SandboxError> {
         .ok_or(SandboxError::SchemaInvalid("argv must be non-empty"))
 }
 
+/// Reject argv tokens that are absolute or contain `..` and resolve outside the jail.
+pub(crate) fn reject_outside_argv_paths(
+    jail: &FilesystemJail,
+    argv: &[String],
+) -> Result<(), SandboxError> {
+    for token in argv {
+        if !argv_token_needs_jail(token) {
+            continue;
+        }
+        jail.resolve_canonical(token)?;
+    }
+    Ok(())
+}
+
+fn argv_token_needs_jail(token: &str) -> bool {
+    let path = Path::new(token);
+    path.is_absolute()
+        || token == "/"
+        || (token.starts_with('/') && token[1..].contains('/'))
+        || path.components().any(|c| matches!(c, Component::ParentDir))
+}
+
 /// Host process backend with cwd constrained by [`FilesystemJail`] (`backend = none`).
 #[derive(Clone, Debug)]
 pub struct NoneBackend {
@@ -95,7 +117,8 @@ impl NoneBackend {
 impl SandboxBackend for NoneBackend {
     fn exec(&self, req: &ExecRequest) -> Result<ExecResult, SandboxError> {
         let program = validate_argv(&req.argv)?;
-        let cwd = self.jail.resolve(&req.cwd)?;
+        reject_outside_argv_paths(&self.jail, &req.argv)?;
+        let cwd = self.jail.resolve_canonical(&req.cwd)?;
         let mut cmd = Command::new(program);
         if req.argv.len() > 1 {
             cmd.args(&req.argv[1..]);
@@ -148,7 +171,8 @@ impl StubBackend {
 impl SandboxBackend for StubBackend {
     fn exec(&self, req: &ExecRequest) -> Result<ExecResult, SandboxError> {
         let _program = validate_argv(&req.argv)?;
-        let _cwd = self.jail.resolve(&req.cwd)?;
+        reject_outside_argv_paths(&self.jail, &req.argv)?;
+        let _cwd = self.jail.resolve_canonical(&req.cwd)?;
         Ok(ExecResult {
             exit_code: 0,
             stdout: format!("stub:{}", req.argv.join("\u{1f}")),
@@ -243,12 +267,12 @@ mod tests {
         let (tmp, backend) = stub_backend();
         let out = backend
             .exec(&ExecRequest {
-                argv: vec!["rm".into(), "-rf".into(), "/".into()],
+                argv: vec!["rm".into(), "-rf".into(), "gone".into()],
                 cwd: PathBuf::from("."),
             })
             .expect("stub");
         assert_eq!(out.exit_code, 0);
-        assert_eq!(out.stdout, "stub:rm\u{1f}-rf\u{1f}/");
+        assert_eq!(out.stdout, "stub:rm\u{1f}-rf\u{1f}gone");
         assert!(out.stderr.is_empty());
         // Dangerous argv must not touch the filesystem.
         assert!(!tmp.path().join("gone").exists());
@@ -263,6 +287,38 @@ mod tests {
                 cwd: PathBuf::from(".."),
             })
             .expect_err("escape");
+        assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+    }
+
+    fn outside_argv_token() -> String {
+        if cfg!(windows) {
+            r"C:\Windows\System32".into()
+        } else {
+            "/etc/passwd".into()
+        }
+    }
+
+    #[test]
+    fn argv_absolute_outside_is_sandbox_violation() {
+        let (_tmp, backend) = stub_backend();
+        let err = backend
+            .exec(&ExecRequest {
+                argv: vec!["cat".into(), outside_argv_token()],
+                cwd: PathBuf::from("."),
+            })
+            .expect_err("outside");
+        assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+    }
+
+    #[test]
+    fn argv_parent_dir_is_sandbox_violation() {
+        let (_tmp, backend) = stub_backend();
+        let err = backend
+            .exec(&ExecRequest {
+                argv: vec!["cat".into(), "../secret".into()],
+                cwd: PathBuf::from("."),
+            })
+            .expect_err("dotdot");
         assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
     }
 }

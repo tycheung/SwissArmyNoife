@@ -3,7 +3,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::backend::{validate_argv, ExecRequest, ExecResult, SandboxBackend, SandboxError};
+use crate::backend::{
+    reject_outside_argv_paths, validate_argv, ExecRequest, ExecResult, SandboxBackend, SandboxError,
+};
 use crate::mount_policy::{MountPolicyError, WorkspaceMountPolicy};
 use crate::{FilesystemJail, JailError};
 
@@ -67,6 +69,7 @@ impl DockerBackend {
     /// Returns [`SandboxError`] on empty argv or jail escape.
     pub fn build_run_args(&self, req: &ExecRequest) -> Result<Vec<String>, SandboxError> {
         let _program = validate_argv(&req.argv)?;
+        reject_outside_argv_paths(self.jail(), &req.argv)?;
         let cwd = self.jail.resolve(&req.cwd)?;
         let workdir = container_workdir(self.jail.root(), &cwd)?;
         self.mount_policy

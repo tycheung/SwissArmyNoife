@@ -1,0 +1,19 @@
+{
+  "schema": "sak.fixture.offer/v0",
+  "offer": "sandbox.exec",
+  "source": "hand-authored symlink escape (sak551-c)",
+  "request": {
+    "binding_id": "00000000-0000-0000-0000-000000000001",
+    "invoke_id": "00000000-0000-0000-0000-000000000002",
+    "offer": "sandbox.exec",
+    "args": {
+      "argv": ["echo", "x"],
+      "cwd": "escape-link"
+    }
+  },
+  "expect": {
+    "status": "error",
+    "code": "sandbox.violation",
+    "message_contains": "sandbox.violation:path_escape"
+  }
+}

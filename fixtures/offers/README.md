@@ -13,7 +13,7 @@ fixtures/offers/
     echo-chat-system.json
     vault-missing.json      ← vault.missing when connection_id absent from catalog
     provider-openai-hint.json ← openai provider_default routing (no secrets)
-  sandbox/                  ← filesystem jail / argv goldens
+  sandbox/                  ← filesystem jail / argv / symlink goldens
   <offer-id>.<case>.json    ← one scenario per file (other offers)
 ```
 

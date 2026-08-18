@@ -101,3 +101,58 @@ fn absolute_cwd_escape_fixture_expectation_string() {
     let message = err.to_string();
     assert!(message.contains(needle), "expected {needle:?} in {message}");
 }
+
+#[test]
+fn argv_outside_fixture() {
+    let fix = load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/argv-outside.json")
+        .expect("fixture");
+    let needle = fix["expect"]["message_contains"]
+        .as_str()
+        .expect("message_contains");
+    let tmp = TempDir::new().expect("tempdir");
+    let backend = StubBackend::with_root(tmp.path()).expect("backend");
+    let err = backend
+        .exec(&ExecRequest {
+            argv: vec!["cat".into(), "../secret".into()],
+            cwd: PathBuf::from("."),
+        })
+        .expect_err("outside");
+    let message = err.to_string();
+    assert!(message.contains(needle), "expected {needle:?} in {message}");
+}
+
+#[test]
+fn symlink_escape_fixture() {
+    let fix = load_offer_fixture(env!("CARGO_MANIFEST_DIR"), "sandbox/symlink-escape.json")
+        .expect("fixture");
+    let needle = fix["expect"]["message_contains"]
+        .as_str()
+        .expect("message_contains");
+    let tmp = TempDir::new().expect("tempdir");
+    let outside = std::env::temp_dir().join("sak551-golden-outside");
+    let _ = std::fs::create_dir_all(&outside);
+    let link = tmp.path().join("escape-link");
+    let linked = {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&outside, &link).is_ok()
+        }
+        #[cfg(windows)]
+        {
+            std::os::windows::fs::symlink_dir(&outside, &link).is_ok()
+        }
+    };
+    if !linked {
+        eprintln!("sak551-c: skip symlink golden (create failed)");
+        return;
+    }
+    let backend = StubBackend::with_root(tmp.path()).expect("backend");
+    let err = backend
+        .exec(&ExecRequest {
+            argv: vec!["echo".into(), "x".into()],
+            cwd: PathBuf::from("escape-link"),
+        })
+        .expect_err("symlink escape");
+    let message = err.to_string();
+    assert!(message.contains(needle), "expected {needle:?} in {message}");
+}
