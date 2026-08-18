@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
-use crate::{ExecRequest, SandboxBackend, SandboxError, WorkspaceMountPolicy};
+use crate::{ExecRequest, ProgramAllowlist, SandboxBackend, SandboxError, WorkspaceMountPolicy};
 
 /// First-party `sandbox.exec` offer backed by a [`SandboxBackend`].
 pub struct SandboxExecOffer<B> {
@@ -16,6 +16,7 @@ pub struct SandboxExecOffer<B> {
     backend: B,
     risk: Mutex<RiskLedger>,
     mounts: Mutex<WorkspaceMountPolicy>,
+    programs: Mutex<ProgramAllowlist>,
 }
 
 impl<B> SandboxExecOffer<B> {
@@ -29,15 +30,21 @@ impl<B> SandboxExecOffer<B> {
             backend,
             risk: Mutex::new(risk),
             mounts: Mutex::new(WorkspaceMountPolicy::default()),
+            programs: Mutex::new(ProgramAllowlist::unrestricted()),
         })
     }
 
-    /// Convenience: parse risk caps from a policy JSON object.
+    /// Convenience: parse risk caps and program allowlist from a policy JSON object.
     ///
     /// # Errors
     /// Returns [`ErrorCode::SchemaInvalid`] when the offer id is empty.
     pub fn with_policy(backend: B, policy: &Value) -> Result<Self, ErrorCode> {
-        Self::new(backend, RiskLedger::from_policy(policy))
+        let offer = Self::new(backend, RiskLedger::from_policy(policy))?;
+        *offer
+            .programs
+            .lock()
+            .map_err(|_| ErrorCode::SchemaInvalid)? = ProgramAllowlist::from_policy(policy);
+        Ok(offer)
     }
 
     /// Last bind-time mount policy (empty until bind).
@@ -69,12 +76,21 @@ impl<B: SandboxBackend + Send + Sync> Offer for SandboxExecOffer<B> {
         drop(risk);
         let mut mounts = self.mounts.lock().map_err(|_| ErrorCode::SchemaInvalid)?;
         *mounts = parsed;
+        drop(mounts);
+        let mut programs = self.programs.lock().map_err(|_| ErrorCode::SchemaInvalid)?;
+        *programs = ProgramAllowlist::from_policy(&params);
         Ok(())
     }
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
         let invoke_id = req.invoke_id.unwrap_or_default();
-        match run_exec(&self.backend, &self.risk, &self.mounts, &req.args) {
+        match run_exec(
+            &self.backend,
+            &self.risk,
+            &self.mounts,
+            &self.programs,
+            &req.args,
+        ) {
             Ok(result) => InvokeResp::ok(invoke_id, result),
             Err((code, message)) => InvokeResp::Error {
                 invoke_id: Some(invoke_id),
@@ -108,12 +124,24 @@ fn run_exec<B: SandboxBackend>(
     backend: &B,
     risk: &Mutex<RiskLedger>,
     mounts: &Mutex<WorkspaceMountPolicy>,
+    programs: &Mutex<ProgramAllowlist>,
     args: &Value,
 ) -> Result<Value, (ErrorCode, String)> {
     let parsed: ExecArgs = serde_json::from_value(args.clone())
         .map_err(|e| (ErrorCode::SchemaInvalid, format!("exec args: {e}")))?;
     if parsed.argv.is_empty() || parsed.argv[0].is_empty() {
         return Err((ErrorCode::SchemaInvalid, "argv must be non-empty".into()));
+    }
+    {
+        let allow = programs
+            .lock()
+            .map_err(|_| (ErrorCode::SchemaInvalid, "programs lock poisoned".into()))?;
+        allow.permits(&parsed.argv[0]).map_err(|code| {
+            (
+                code,
+                format!("policy.denied: sandbox.programs: {}", parsed.argv[0]),
+            )
+        })?;
     }
     {
         let mut ledger = risk
@@ -340,6 +368,55 @@ mod tests {
             .await
             .expect_err("escape");
         assert_eq!(err, ErrorCode::SandboxViolation);
+    }
+
+    #[tokio::test]
+    async fn unknown_program_is_policy_denied() {
+        let offer = stub_offer(&json!({
+            "sandbox": { "programs": ["git", "cargo"] }
+        }));
+        let resp = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                args: json!({"argv": ["python"]}),
+                invoke_id: None,
+                offer: None,
+            })
+            .await;
+        match resp {
+            InvokeResp::Error {
+                code: ErrorCode::PolicyDenied,
+                message,
+                ..
+            } => {
+                assert!(
+                    message.contains("sandbox.programs"),
+                    "expected programs deny, got {message}"
+                );
+            }
+            other => panic!("expected PolicyDenied, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn git_fixture_allowed() {
+        let offer = stub_offer(&json!({
+            "sandbox": { "programs": ["git", "cargo", "echo"] }
+        }));
+        let resp = offer
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                args: json!({"argv": ["echo", "ok"]}),
+                invoke_id: None,
+                offer: None,
+            })
+            .await;
+        match resp {
+            InvokeResp::Ok { .. } => {}
+            InvokeResp::Error { code, message, .. } => {
+                panic!("git/cargo fixture should allow echo: {code}: {message}")
+            }
+        }
     }
 
     #[tokio::test]
