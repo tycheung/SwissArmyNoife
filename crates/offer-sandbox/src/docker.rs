@@ -122,9 +122,22 @@ fn container_guest_path(guest: &Path) -> String {
 
 impl SandboxBackend for DockerBackend {
     fn exec(&self, req: &ExecRequest) -> Result<ExecResult, SandboxError> {
-        let args = self.build_run_args(req)?;
+        self.spawn_docker(&self.build_run_args(req)?)
+    }
+
+    fn exec_with_mounts(
+        &self,
+        req: &ExecRequest,
+        mounts: &crate::WorkspaceMountPolicy,
+    ) -> Result<ExecResult, SandboxError> {
+        self.clone().with_mount_policy(mounts.clone()).exec(req)
+    }
+}
+
+impl DockerBackend {
+    fn spawn_docker(&self, args: &[String]) -> Result<ExecResult, SandboxError> {
         let output = Command::new(&self.docker_bin)
-            .args(&args)
+            .args(args)
             .output()
             .map_err(|e| SandboxError::Spawn(format!("docker: {e}")))?;
         let exit_code = output.status.code().unwrap_or(-1);
@@ -233,6 +246,32 @@ mod tests {
             args.windows(2)
                 .any(|w| w[0] == "-v" && w[1] == "/data/project:/sak/workspace:ro"),
             "expected ro bind mount in args: {args:?}"
+        );
+    }
+
+    #[test]
+    fn exec_with_mounts_applies_bound_policy() {
+        let (_tmp, backend) = backend();
+        let policy = crate::WorkspaceMountPolicy {
+            mounts: vec![crate::BindMount {
+                host: PathBuf::from("/data/project"),
+                guest: PathBuf::from("workspace"),
+                read_only: true,
+            }],
+        };
+        let req = ExecRequest {
+            argv: vec!["true".into()],
+            cwd: PathBuf::from("."),
+        };
+        let args = backend
+            .clone()
+            .with_mount_policy(policy)
+            .build_run_args(&req)
+            .expect("args");
+        assert!(
+            args.windows(2)
+                .any(|w| w[0] == "-v" && w[1] == "/data/project:/sak/workspace:ro"),
+            "sak552-b expected bound policy volume: {args:?}"
         );
     }
 

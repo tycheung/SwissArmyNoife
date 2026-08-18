@@ -8,13 +8,14 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
-use crate::{ExecRequest, SandboxBackend, SandboxError};
+use crate::{ExecRequest, SandboxBackend, SandboxError, WorkspaceMountPolicy};
 
 /// First-party `sandbox.exec` offer backed by a [`SandboxBackend`].
 pub struct SandboxExecOffer<B> {
     entry: CatalogEntry,
     backend: B,
     risk: Mutex<RiskLedger>,
+    mounts: Mutex<WorkspaceMountPolicy>,
 }
 
 impl<B> SandboxExecOffer<B> {
@@ -27,6 +28,7 @@ impl<B> SandboxExecOffer<B> {
             entry: CatalogEntry::new("sandbox.exec", "0.1.0")?,
             backend,
             risk: Mutex::new(risk),
+            mounts: Mutex::new(WorkspaceMountPolicy::default()),
         })
     }
 
@@ -36,6 +38,17 @@ impl<B> SandboxExecOffer<B> {
     /// Returns [`ErrorCode::SchemaInvalid`] when the offer id is empty.
     pub fn with_policy(backend: B, policy: &Value) -> Result<Self, ErrorCode> {
         Self::new(backend, RiskLedger::from_policy(policy))
+    }
+
+    /// Last bind-time mount policy (empty until bind).
+    ///
+    /// # Errors
+    /// Returns [`ErrorCode::SchemaInvalid`] if the mounts lock is poisoned.
+    pub fn mount_policy(&self) -> Result<WorkspaceMountPolicy, ErrorCode> {
+        self.mounts
+            .lock()
+            .map(|g| g.clone())
+            .map_err(|_| ErrorCode::SchemaInvalid)
     }
 }
 
@@ -49,14 +62,19 @@ impl<B: SandboxBackend + Send + Sync> Offer for SandboxExecOffer<B> {
     }
 
     async fn bind(&self, _binding_id: BindingId, params: Value) -> Result<(), ErrorCode> {
+        let parsed =
+            WorkspaceMountPolicy::from_bind_params(&params).map_err(|e| e.to_error_code())?;
         let mut risk = self.risk.lock().map_err(|_| ErrorCode::SchemaInvalid)?;
         *risk = RiskLedger::from_policy(&params);
+        drop(risk);
+        let mut mounts = self.mounts.lock().map_err(|_| ErrorCode::SchemaInvalid)?;
+        *mounts = parsed;
         Ok(())
     }
 
     async fn invoke(&self, req: InvokeReq) -> InvokeResp {
         let invoke_id = req.invoke_id.unwrap_or_default();
-        match run_exec(&self.backend, &self.risk, &req.args) {
+        match run_exec(&self.backend, &self.risk, &self.mounts, &req.args) {
             Ok(result) => InvokeResp::ok(invoke_id, result),
             Err((code, message)) => InvokeResp::Error {
                 invoke_id: Some(invoke_id),
@@ -89,6 +107,7 @@ fn default_cwd() -> String {
 fn run_exec<B: SandboxBackend>(
     backend: &B,
     risk: &Mutex<RiskLedger>,
+    mounts: &Mutex<WorkspaceMountPolicy>,
     args: &Value,
 ) -> Result<Value, (ErrorCode, String)> {
     let parsed: ExecArgs = serde_json::from_value(args.clone())
@@ -107,11 +126,18 @@ fn run_exec<B: SandboxBackend>(
             )
         })?;
     }
+    let policy = mounts
+        .lock()
+        .map_err(|_| (ErrorCode::SchemaInvalid, "mounts lock poisoned".into()))?
+        .clone();
     let out = backend
-        .exec(&ExecRequest {
-            argv: parsed.argv,
-            cwd: PathBuf::from(parsed.cwd),
-        })
+        .exec_with_mounts(
+            &ExecRequest {
+                argv: parsed.argv,
+                cwd: PathBuf::from(parsed.cwd),
+            },
+            &policy,
+        )
         .map_err(|e| map_sandbox(&e))?;
     Ok(json!({
         "exit_code": out.exit_code,
@@ -246,5 +272,41 @@ mod tests {
                 panic!("after rebind should ok: {code}: {message}")
             }
         }
+    }
+
+    #[tokio::test]
+    async fn bind_parses_mounts_policy() {
+        let offer = stub_offer(&json!({}));
+        offer
+            .bind(
+                BindingId::new(),
+                json!({
+                    "mounts": [{
+                        "host": "/data/project",
+                        "guest": "workspace/src",
+                        "read_only": true
+                    }]
+                }),
+            )
+            .await
+            .expect("bind");
+        let policy = offer.mount_policy().expect("policy");
+        assert_eq!(policy.mounts.len(), 1);
+        assert!(policy.mounts[0].read_only);
+    }
+
+    #[tokio::test]
+    async fn bind_rejects_escaping_guest() {
+        let offer = stub_offer(&json!({}));
+        let err = offer
+            .bind(
+                BindingId::new(),
+                json!({
+                    "mounts": [{ "host": "/data", "guest": "../escape" }]
+                }),
+            )
+            .await
+            .expect_err("escape");
+        assert_eq!(err, ErrorCode::SandboxViolation);
     }
 }

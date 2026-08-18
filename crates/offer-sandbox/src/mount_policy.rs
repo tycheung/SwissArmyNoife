@@ -11,6 +11,7 @@ use types::ErrorCode;
 pub struct BindMount {
     pub host: PathBuf,
     pub guest: PathBuf,
+    #[serde(default)]
     pub read_only: bool,
 }
 
@@ -63,6 +64,21 @@ impl WorkspaceMountPolicy {
             mount.validate()?;
         }
         Ok(())
+    }
+
+    /// Parse `mounts` from a binding policy JSON object (missing key → empty policy).
+    ///
+    /// # Errors
+    /// Schema errors or guest path escape.
+    pub fn from_bind_params(params: &serde_json::Value) -> Result<Self, MountPolicyError> {
+        let Some(raw) = params.get("mounts") else {
+            return Ok(Self::default());
+        };
+        let mounts: Vec<BindMount> = serde_json::from_value(raw.clone())
+            .map_err(|_| MountPolicyError::SchemaInvalid("mounts must be bind-mount objects"))?;
+        let policy = Self { mounts };
+        policy.validate()?;
+        Ok(policy)
     }
 }
 
@@ -194,5 +210,30 @@ mod tests {
         let back: WorkspaceMountPolicy = serde_json::from_value(v).expect("deserialize");
         assert_eq!(back, policy);
         back.validate().expect("valid after roundtrip");
+    }
+
+    #[test]
+    fn from_bind_params_missing_is_empty() {
+        let p = WorkspaceMountPolicy::from_bind_params(&json!({})).expect("ok");
+        assert!(p.mounts.is_empty());
+    }
+
+    #[test]
+    fn from_bind_params_invalid_guest_escapes() {
+        let err = WorkspaceMountPolicy::from_bind_params(&json!({
+            "mounts": [{ "host": "/data", "guest": "../escape", "read_only": true }]
+        }))
+        .expect_err("escape");
+        assert_eq!(err.to_error_code(), ErrorCode::SandboxViolation);
+    }
+
+    #[test]
+    fn from_bind_params_roundtrip_valid() {
+        let p = WorkspaceMountPolicy::from_bind_params(&json!({
+            "mounts": [{ "host": "/data/project", "guest": "workspace/src", "read_only": true }]
+        }))
+        .expect("ok");
+        assert_eq!(p.mounts.len(), 1);
+        assert!(p.mounts[0].read_only);
     }
 }

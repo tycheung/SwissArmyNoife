@@ -6,7 +6,7 @@ use std::process::Command;
 use thiserror::Error;
 use types::ErrorCode;
 
-use crate::{FilesystemJail, JailError};
+use crate::{FilesystemJail, JailError, WorkspaceMountPolicy};
 
 /// Request to run a command inside a sandbox backend.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,6 +57,21 @@ pub trait SandboxBackend {
     /// # Errors
     /// Returns [`SandboxError`] on jail escape, bad args, or spawn failure.
     fn exec(&self, req: &ExecRequest) -> Result<ExecResult, SandboxError>;
+
+    /// Run `req` with a bind-time mount policy (Docker applies `-v` specs).
+    ///
+    /// Default: ignore mounts and call [`Self::exec`].
+    ///
+    /// # Errors
+    /// Same as [`Self::exec`].
+    fn exec_with_mounts(
+        &self,
+        req: &ExecRequest,
+        mounts: &WorkspaceMountPolicy,
+    ) -> Result<ExecResult, SandboxError> {
+        let _ = mounts;
+        self.exec(req)
+    }
 }
 
 pub(crate) fn validate_argv(argv: &[String]) -> Result<&str, SandboxError> {
