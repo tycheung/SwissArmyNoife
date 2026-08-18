@@ -31,6 +31,27 @@ fn test_server() -> (McpServer, tempfile::TempDir) {
     (server, tmp)
 }
 
+#[test]
+fn persist_backend_defaults_to_sqlite() {
+    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
+    std::env::remove_var("SAK_PERSIST_BACKEND");
+    std::env::remove_var("SAK_PG_URL");
+    assert_eq!(persist_backend_kind(), "sqlite");
+    drop(guard);
+}
+
+#[cfg(feature = "postgres")]
+#[test]
+fn persist_backend_postgres_when_url_and_gate_set() {
+    let guard = crate::MCP_TEST_ENV_LOCK.lock().expect("env lock");
+    std::env::set_var("SAK_PERSIST_BACKEND", "postgres");
+    std::env::set_var("SAK_PG_URL", "postgres://localhost/sak");
+    assert_eq!(persist_backend_kind(), "postgres");
+    std::env::remove_var("SAK_PERSIST_BACKEND");
+    std::env::remove_var("SAK_PG_URL");
+    drop(guard);
+}
+
 #[tokio::test]
 async fn ping_returns_ok() {
     let (server, _tmp) = test_server();

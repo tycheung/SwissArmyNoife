@@ -85,6 +85,7 @@ impl McpServer {
             control::CatalogEntry::new("broker.health", "0.1.0").expect("broker.health id"),
         );
         let catalog = Arc::new(catalog);
+        log_persist_backend();
         let bindings = Arc::new(Mutex::new(load_bindings()));
         let policy = Arc::new(PolicyEngine::ambient());
         let broker_health = Arc::new(
@@ -950,6 +951,34 @@ impl ServerHandler for McpServer {
         let store = self.bindings.lock().await;
         read_resource(&self.catalog, &store, &request.uri)
     }
+}
+
+/// `SQLite` is the default persist backend; Postgres is opt-in (`sak572-e`).
+pub(crate) fn persist_backend_kind() -> &'static str {
+    #[cfg(feature = "postgres")]
+    {
+        if persist_postgres::postgres_enabled() && persist_postgres::pg_url_from_env().is_some() {
+            return "postgres";
+        }
+    }
+    "sqlite"
+}
+
+fn log_persist_backend() {
+    let kind = persist_backend_kind();
+    #[cfg(feature = "postgres")]
+    if kind == "postgres" {
+        match persist_postgres::try_open_from_env() {
+            Ok(Some(_)) => tracing::info!("mcp persist backend: postgres"),
+            Ok(None) => tracing::info!("mcp persist backend: sqlite"),
+            Err(e) => tracing::warn!(
+                error = %e,
+                "postgres persist open failed; SQLite default unchanged"
+            ),
+        }
+        return;
+    }
+    tracing::debug!("mcp persist backend: {kind}");
 }
 
 fn load_bindings() -> BindingStore {

@@ -18,6 +18,11 @@ path = "src/main.rs"
 name = "mcp-http"
 path = "src/http_main.rs"
 
+[features]
+default = []
+# Optional Postgres persist probe (`sak572-e`). SQLite remains the default store.
+postgres = ["dep:persist-postgres", "persist-postgres/postgres"]
+
 [dependencies]
 rmcp = { version = "0.12", features = [
     "server",
@@ -40,6 +45,7 @@ offer-capacity = { path = "../offer-capacity" }
 offer-compute = { path = "../offer-compute" }
 offer-eval = { path = "../offer-eval" }
 persist-sqlite = { path = "../persist-sqlite" }
+persist-postgres = { path = "../persist-postgres", optional = true }
 vault = { path = "../vault" }
 module-registry = { path = "../module-registry" }
 provider-anthropic = { path = "../provider-anthropic" }
