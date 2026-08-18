@@ -72,7 +72,8 @@ async fn stdio_resources_and_invoke() -> Result<(), Box<dyn std::error::Error>> 
             name: "bind".into(),
             arguments: Some(obj(json!({
                 "offer_id": "sandbox.exec",
-                "ttl_secs": 120
+                "ttl_secs": 120,
+                "policy": { "sandbox": { "shell": true } }
             }))),
         })
         .await?;

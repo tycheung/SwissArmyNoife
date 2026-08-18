@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use control::{CatalogEntry, Offer, RiskLedger};
+use control::{CatalogEntry, Offer};
 use offer_sandbox::{DockerBackend, NoneBackend, SandboxExecOffer, StubBackend};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tracing::warn;
 use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 
@@ -35,7 +35,7 @@ impl LiveSandbox {
                 tracing::info!(root = %jail_root.display(), "sandbox backend=stub");
                 let b = StubBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
                 Ok(Self::Stub(
-                    SandboxExecOffer::new(b, RiskLedger::unlimited())
+                    SandboxExecOffer::with_policy(b, &json!({ "sandbox": { "shell": true } }))
                         .map_err(|_| ErrorCode::SchemaInvalid)?,
                 ))
             }
@@ -44,7 +44,7 @@ impl LiveSandbox {
                 let b =
                     DockerBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
                 Ok(Self::Docker(
-                    SandboxExecOffer::new(b, RiskLedger::unlimited())
+                    SandboxExecOffer::with_policy(b, &json!({ "sandbox": { "shell": true } }))
                         .map_err(|_| ErrorCode::SchemaInvalid)?,
                 ))
             }
@@ -52,7 +52,7 @@ impl LiveSandbox {
                 tracing::info!(root = %jail_root.display(), "sandbox backend=none (host+jail)");
                 let b = NoneBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
                 Ok(Self::Host(
-                    SandboxExecOffer::new(b, RiskLedger::unlimited())
+                    SandboxExecOffer::with_policy(b, &json!({ "sandbox": { "shell": true } }))
                         .map_err(|_| ErrorCode::SchemaInvalid)?,
                 ))
             }

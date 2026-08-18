@@ -8,10 +8,11 @@ use crate::tool_args::{
     ResearchFetchArgs, SandboxJailArgs, ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
-use crate::workspace_tools::{fs_err, mode_label, parse_read_mode, shell_err};
+use crate::workspace_tools::{fs_err, mode_label, parse_read_mode};
+use control::Offer;
 use rmcp::ErrorData as McpError;
 use serde_json::json;
-use types::OfferId;
+use types::{BindingId, InvokeReq, OfferId};
 
 impl McpServer {
     pub(crate) fn fs_read_inner(&self, args: FsReadArgs) -> Result<String, McpError> {
@@ -48,15 +49,19 @@ impl McpServer {
         Ok(json!({ "path": path, "hits": hits }).to_string())
     }
 
-    pub(crate) fn shell_exec_inner(&self, args: ShellExecArgs) -> Result<String, McpError> {
+    pub(crate) async fn shell_exec_inner(&self, args: ShellExecArgs) -> Result<String, McpError> {
         let ShellExecArgs { argv, cwd } = args;
-        let out = self.shell.exec(argv, cwd).map_err(|e| shell_err(&e))?;
-        Ok(json!({
-            "exit_code": out.exit_code,
-            "stdout": out.stdout,
-            "stderr": out.stderr
-        })
-        .to_string())
+        let resp = self
+            .offers
+            .sandbox
+            .invoke(InvokeReq {
+                binding_id: BindingId::new(),
+                args: json!({ "argv": argv, "cwd": cwd }),
+                invoke_id: None,
+                offer: None,
+            })
+            .await;
+        serialize_resp(&resp)
     }
 
     pub(crate) async fn egress_check_inner(

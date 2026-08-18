@@ -38,6 +38,7 @@ pub(crate) fn fs_err(e: &offer_tools::FsError) -> McpError {
     McpError::invalid_params(format!("{}: {e}", e.to_error_code()), None)
 }
 
+#[allow(dead_code)]
 pub(crate) fn shell_err(e: &offer_tools::ShellError) -> McpError {
     McpError::invalid_params(format!("{}: {e}", e.to_error_code()), None)
 }

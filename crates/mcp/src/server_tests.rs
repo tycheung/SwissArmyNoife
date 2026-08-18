@@ -6,6 +6,8 @@ use serde_json::Value;
 use types::{ErrorCode, InvokeResp};
 use uuid::Uuid;
 
+static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn sample_bind(offer_id: &str) -> BindArgs {
     BindArgs {
         offer_id: offer_id.into(),
@@ -18,8 +20,7 @@ fn sample_bind(offer_id: &str) -> BindArgs {
 }
 
 fn test_server() -> (McpServer, tempfile::TempDir) {
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let guard = ENV_LOCK.lock().expect("env lock");
+    let guard = TEST_ENV_LOCK.lock().expect("env lock");
     let tmp = tempfile::tempdir().expect("tmp");
     std::env::set_var(crate::live::LLM_BACKEND, "echo");
     std::env::set_var(crate::live::SANDBOX_BACKEND, "none");

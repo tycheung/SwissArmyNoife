@@ -50,6 +50,7 @@ pub struct McpServer {
     #[allow(dead_code)]
     pub(crate) api_keys: Arc<ApiKeyStore>,
     pub(crate) fs: Arc<FsTools>,
+    #[allow(dead_code)]
     pub(crate) shell: Arc<ShellTools<HostShellRunner>>,
     pub(crate) modules: Arc<ModuleRuntime>,
     pub(crate) idempotency: Arc<std::sync::Mutex<IdempotencyStore>>,
@@ -668,12 +669,12 @@ impl McpServer {
         self.fs_grep_inner(args)
     }
 
-    #[tool(description = "Run argv in the workspace jail via host shell runner")]
+    #[tool(description = "Run argv in the workspace jail via the live sandbox backend")]
     async fn shell_exec(
         &self,
         Parameters(args): Parameters<ShellExecArgs>,
     ) -> Result<String, McpError> {
-        self.shell_exec_inner(args)
+        self.shell_exec_inner(args).await
     }
 
     /// Typed invoke for `network.egress.check` (returns `InvokeResp` JSON).
