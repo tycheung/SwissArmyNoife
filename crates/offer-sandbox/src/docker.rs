@@ -74,7 +74,20 @@ impl DockerBackend {
             .map_err(|e| mount_policy_to_sandbox_error(&e))?;
 
         let volume = format!("{}:{CONTAINER_ROOT}", self.jail.root().to_string_lossy());
-        let mut args = vec!["run".into(), "--rm".into(), "-v".into(), volume];
+        let mut args = vec![
+            "run".into(),
+            "--rm".into(),
+            "--network".into(),
+            "none".into(),
+            "--cap-drop".into(),
+            "ALL".into(),
+            "--security-opt".into(),
+            "no-new-privileges".into(),
+            "--user".into(),
+            "65534:65534".into(),
+            "-v".into(),
+            volume,
+        ];
         for mount in &self.mount_policy.mounts {
             let guest = container_guest_path(&mount.guest);
             let mut spec = format!("{}:{guest}", mount.host.to_string_lossy());
@@ -160,6 +173,18 @@ mod tests {
             .expect("args");
         assert_eq!(args[0], "run");
         assert!(args.iter().any(|a| a == "--rm"));
+        assert!(args
+            .windows(2)
+            .any(|w| w[0] == "--network" && w[1] == "none"));
+        assert!(args
+            .windows(2)
+            .any(|w| w[0] == "--cap-drop" && w[1] == "ALL"));
+        assert!(args
+            .windows(2)
+            .any(|w| w[0] == "--security-opt" && w[1] == "no-new-privileges"));
+        assert!(args
+            .windows(2)
+            .any(|w| w[0] == "--user" && w[1] == "65534:65534"));
         assert!(args.iter().any(|a| a == "-v"));
         assert!(args.iter().any(|a| a == "-w"));
         assert!(args.iter().any(|a| a == CONTAINER_ROOT));

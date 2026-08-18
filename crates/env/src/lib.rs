@@ -7,7 +7,7 @@
 //! | `CONFIG_DIR` | Config directory (default: platform config dir + `swissarmynoife`) |
 //! | `DB_PATH` | Absolute/relative path to `broker.db` (overrides `{config}/broker.db`) |
 //! | `LLM_BACKEND` | MCP: `ollama` (default) or `echo` |
-//! | `SANDBOX_BACKEND` | MCP: `none` host+jail (default) or `stub` |
+//! | `SANDBOX_BACKEND` | MCP: `none` host+jail (default), `stub`, or `docker` |
 //!
 //! # Resolution order
 //!

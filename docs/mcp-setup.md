@@ -78,11 +78,16 @@ Endpoint: `http://{MCP_HTTP_ADDR}/mcp`.
 |----------|---------------------|---------|
 | `CONFIG_DIR` | `…/SwissArmyNoife/.run` | Config + DB root (create the directory once) |
 | `LLM_BACKEND` | `echo` (no Ollama) or `ollama` | LLM offer backend |
-| `SANDBOX_BACKEND` | `none` (default) or `stub` | Sandbox offer |
+| `SANDBOX_BACKEND` | `none` (default host+jail), `stub` (CI, no spawn), or `docker` | Sandbox offer |
 | `RUST_LOG` | `mcp=warn,rmcp=warn` | Logging (stderr) |
 
 Full catalog: if you are in the Agentic workspace, see [`docs/env.md`](../../docs/env.md);
 auth detail: [`docs/mcp-auth.md`](../../docs/mcp-auth.md).
+
+**Docker sandbox (`SANDBOX_BACKEND=docker`):** requires a working `docker` CLI. The broker
+runs `docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges
+--user 65534:65534` with the jail volume mounted at `/sak`. Use `none` for ambient-trust
+dev and `stub` when no process should spawn (CI).
 
 ## After rebuild
 

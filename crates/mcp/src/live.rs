@@ -16,7 +16,9 @@ use offer_memory::{
     MemoryEmbedOffer, MemoryIndexOffer, MemoryPlane, MemoryScopeOffer, MemorySearchOffer,
 };
 use offer_research::{ResearchBriefOffer, ResearchFetchOffer};
-use offer_sandbox::{FilesystemJail, NoneBackend, SandboxExecOffer, SandboxJailOffer, StubBackend};
+use offer_sandbox::{
+    DockerBackend, FilesystemJail, NoneBackend, SandboxExecOffer, SandboxJailOffer, StubBackend,
+};
 use offer_tools::{ToolsLoopOffer, ToolsRegistryOffer};
 use provider_anthropic::AnthropicProvider;
 use provider_core::{ChatRequest, ChatResponse, ProviderError};
@@ -29,7 +31,7 @@ use types::{BindingId, ErrorCode, InvokeReq, InvokeResp};
 /// `LLM_BACKEND`: `ollama` (default) or `echo` (CI / no daemon).
 pub const LLM_BACKEND: &str = "LLM_BACKEND";
 
-/// `SANDBOX_BACKEND`: `none` host+jail (default) or `stub` (no spawn).
+/// `SANDBOX_BACKEND`: `none` host+jail (default), `stub` (no spawn), or `docker`.
 pub const SANDBOX_BACKEND: &str = "SANDBOX_BACKEND";
 
 /// Routes resolved provider names to concrete HTTP clients (or echo).
@@ -140,14 +142,15 @@ impl ChatProviders for McpLlmRouter {
     }
 }
 
-/// Host or stub sandbox offer (selected at boot).
+/// Host, stub, or docker sandbox offer (selected at boot).
 pub enum LiveSandbox {
     Host(SandboxExecOffer<NoneBackend>),
     Stub(SandboxExecOffer<StubBackend>),
+    Docker(SandboxExecOffer<DockerBackend>),
 }
 
 impl LiveSandbox {
-    /// Select host or stub sandbox from `SANDBOX_BACKEND` env.
+    /// Select host, stub, or docker sandbox from `SANDBOX_BACKEND` env.
     ///
     /// # Errors
     /// Returns `SchemaInvalid` if the jail directory cannot be created or the
@@ -157,23 +160,43 @@ impl LiveSandbox {
             warn!(error = %e, path = %jail_root.display(), "jail mkdir failed");
             ErrorCode::SchemaInvalid
         })?;
-        if std::env::var(SANDBOX_BACKEND)
-            .unwrap_or_default()
-            .eq_ignore_ascii_case("stub")
-        {
-            tracing::info!(root = %jail_root.display(), "sandbox backend=stub");
-            let b = StubBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
-            Ok(Self::Stub(
-                SandboxExecOffer::new(b, RiskLedger::unlimited())
-                    .map_err(|_| ErrorCode::SchemaInvalid)?,
-            ))
-        } else {
-            tracing::info!(root = %jail_root.display(), "sandbox backend=none (host+jail)");
-            let b = NoneBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
-            Ok(Self::Host(
-                SandboxExecOffer::new(b, RiskLedger::unlimited())
-                    .map_err(|_| ErrorCode::SchemaInvalid)?,
-            ))
+        let raw = std::env::var(SANDBOX_BACKEND).unwrap_or_default();
+        match raw.to_ascii_lowercase().as_str() {
+            "stub" => {
+                tracing::info!(root = %jail_root.display(), "sandbox backend=stub");
+                let b = StubBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
+                Ok(Self::Stub(
+                    SandboxExecOffer::new(b, RiskLedger::unlimited())
+                        .map_err(|_| ErrorCode::SchemaInvalid)?,
+                ))
+            }
+            "docker" => {
+                tracing::info!(root = %jail_root.display(), "sandbox backend=docker");
+                let b =
+                    DockerBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
+                Ok(Self::Docker(
+                    SandboxExecOffer::new(b, RiskLedger::unlimited())
+                        .map_err(|_| ErrorCode::SchemaInvalid)?,
+                ))
+            }
+            _ => {
+                tracing::info!(root = %jail_root.display(), "sandbox backend=none (host+jail)");
+                let b = NoneBackend::with_root(jail_root).map_err(|_| ErrorCode::SchemaInvalid)?;
+                Ok(Self::Host(
+                    SandboxExecOffer::new(b, RiskLedger::unlimited())
+                        .map_err(|_| ErrorCode::SchemaInvalid)?,
+                ))
+            }
+        }
+    }
+
+    /// Env label for the selected backend (`none` / `stub` / `docker`).
+    #[must_use]
+    pub const fn backend_label(&self) -> &'static str {
+        match self {
+            Self::Host(_) => "none",
+            Self::Stub(_) => "stub",
+            Self::Docker(_) => "docker",
         }
     }
 }
@@ -183,6 +206,7 @@ impl Offer for LiveSandbox {
         match self {
             Self::Host(o) => o.catalog_entry(),
             Self::Stub(o) => o.catalog_entry(),
+            Self::Docker(o) => o.catalog_entry(),
         }
     }
 
@@ -190,6 +214,7 @@ impl Offer for LiveSandbox {
         match self {
             Self::Host(o) => o.provision(params).await,
             Self::Stub(o) => o.provision(params).await,
+            Self::Docker(o) => o.provision(params).await,
         }
     }
 
@@ -197,6 +222,7 @@ impl Offer for LiveSandbox {
         match self {
             Self::Host(o) => o.bind(binding_id, params).await,
             Self::Stub(o) => o.bind(binding_id, params).await,
+            Self::Docker(o) => o.bind(binding_id, params).await,
         }
     }
 
@@ -204,6 +230,7 @@ impl Offer for LiveSandbox {
         match self {
             Self::Host(o) => o.invoke(req).await,
             Self::Stub(o) => o.invoke(req).await,
+            Self::Docker(o) => o.invoke(req).await,
         }
     }
 
@@ -211,6 +238,7 @@ impl Offer for LiveSandbox {
         match self {
             Self::Host(o) => o.unbind(binding_id).await,
             Self::Stub(o) => o.unbind(binding_id).await,
+            Self::Docker(o) => o.unbind(binding_id).await,
         }
     }
 
@@ -218,6 +246,7 @@ impl Offer for LiveSandbox {
         match self {
             Self::Host(o) => o.health().await,
             Self::Stub(o) => o.health().await,
+            Self::Docker(o) => o.health().await,
         }
     }
 }
@@ -390,5 +419,36 @@ mod tests {
         assert!(!dbg.contains("sk-test"));
         std::env::remove_var(persist_sqlite::CONFIG_DIR);
         std::env::remove_var(vault::VAULT_KEY);
+    }
+
+    fn from_env_selects(label: &str) -> LiveSandbox {
+        static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = ENV_LOCK.lock().expect("env lock");
+        let tmp = tempfile::tempdir().expect("tmp");
+        std::env::set_var(SANDBOX_BACKEND, label);
+        let live = LiveSandbox::from_env(tmp.path()).expect("sandbox");
+        std::env::remove_var(SANDBOX_BACKEND);
+        live
+    }
+
+    #[test]
+    fn from_env_docker_selects_docker_backend() {
+        let live = from_env_selects("docker");
+        assert_eq!(live.backend_label(), "docker");
+        assert!(matches!(live, LiveSandbox::Docker(_)));
+    }
+
+    #[test]
+    fn from_env_stub_selects_stub_backend() {
+        let live = from_env_selects("stub");
+        assert_eq!(live.backend_label(), "stub");
+        assert!(matches!(live, LiveSandbox::Stub(_)));
+    }
+
+    #[test]
+    fn from_env_none_selects_host_backend() {
+        let live = from_env_selects("none");
+        assert_eq!(live.backend_label(), "none");
+        assert!(matches!(live, LiveSandbox::Host(_)));
     }
 }
