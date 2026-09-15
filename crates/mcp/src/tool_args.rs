@@ -368,6 +368,125 @@ pub(crate) struct ResearchBriefArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserNavigateArgs {
+    /// Binding id from `bind` for `browser.session`.
+    pub binding_id: String,
+    /// Absolute URL to open (egress policy-gated).
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserSnapshotArgs {
+    /// Binding id from `bind` for `browser.session`.
+    pub binding_id: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserRefArgs {
+    pub binding_id: String,
+    /// Snapshot ref (e.g. `e4`).
+    pub r#ref: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserTypeArgs {
+    pub binding_id: String,
+    pub r#ref: String,
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserPressKeyArgs {
+    pub binding_id: String,
+    pub key: String,
+    #[serde(default)]
+    pub r#ref: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserScrollArgs {
+    pub binding_id: String,
+    #[serde(default)]
+    pub r#ref: Option<String>,
+    #[serde(default)]
+    pub delta_x: Option<f64>,
+    #[serde(default)]
+    pub delta_y: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserSelectArgs {
+    pub binding_id: String,
+    pub r#ref: String,
+    #[serde(default)]
+    pub value: Option<String>,
+    #[serde(default)]
+    pub values: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserDragArgs {
+    pub binding_id: String,
+    pub r#ref: String,
+    pub target_ref: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserMouseXyArgs {
+    pub binding_id: String,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserScreenshotArgs {
+    pub binding_id: String,
+    #[serde(default)]
+    pub full_page: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserTabsArgs {
+    pub binding_id: String,
+    /// `list` | `new` | `select` | `close`.
+    pub action: String,
+    #[serde(default)]
+    pub index: Option<u32>,
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserLockArgs {
+    pub binding_id: String,
+    /// `lock` | `unlock`.
+    pub action: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserLogTailArgs {
+    pub binding_id: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserFailureReportArgs {
+    pub binding_id: String,
+    #[serde(default)]
+    pub step: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct BrowserCdpArgs {
+    pub binding_id: String,
+    pub method: String,
+    #[serde(default)]
+    #[schemars(schema_with = "option_json_value_schema")]
+    pub params: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct ModuleInvokeArgs {
     /// Installed module id (e.g. `community.echo`).
     pub id: String,

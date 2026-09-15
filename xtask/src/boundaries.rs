@@ -55,6 +55,10 @@ pub fn forbidden_reason(from: &str, to: &str) -> Option<&'static str> {
         if from == "offer-research" && to == "offer-egress" {
             return None;
         }
+        // sak596: browser.session reuses egress host/principal gates for navigate.
+        if from == "offer-browser" && to == "offer-egress" {
+            return None;
+        }
         if to.starts_with("offer-") && from != to {
             return Some("cross-offer dependencies are forbidden");
         }

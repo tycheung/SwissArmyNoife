@@ -81,7 +81,9 @@ fn server_info_documents_ambient_trust() {
     );
     assert!(text.contains("broker_health"));
     assert!(text.contains("llm_chat"));
-    assert!(text.contains("v19"));
+    assert!(text.contains("v23"));
+    assert!(text.contains("browser_navigate"));
+    assert!(text.contains("browser_failure_report"));
     assert!(text.contains("connections_list"));
     assert!(text.contains("audit_query"));
     assert!(text.contains("rate_limit_status"));

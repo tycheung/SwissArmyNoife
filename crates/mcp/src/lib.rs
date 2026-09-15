@@ -1,5 +1,6 @@
 //! `SwissArmyNoife` MCP library (stdio + Streamable HTTP binaries).
 
+mod browser_tools;
 pub mod capacity_fit;
 pub mod dispatch;
 pub mod echo_offer;

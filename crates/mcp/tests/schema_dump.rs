@@ -25,6 +25,11 @@ const TOOL_NAMES: &[&str] = &[
     "fs_read",
     "memory_search",
     "research_fetch",
+    "browser_navigate",
+    "browser_snapshot",
+    "browser_click",
+    "browser_failure_report",
+    "browser_cdp",
     "compute_work",
     "module_list",
     "module_invoke",
@@ -57,6 +62,7 @@ async fn tool_schemas_have_typed_properties() -> Result<(), Box<dyn std::error::
             c.env("CONFIG_DIR", tmp.path())
                 .env("LLM_BACKEND", "echo")
                 .env("SANDBOX_BACKEND", "none")
+                .env("BROWSER_BACKEND", "stub")
                 .env("CAPACITY_PROBE", "fake");
         }))?)
         .await?;

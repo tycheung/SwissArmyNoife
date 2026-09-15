@@ -79,6 +79,8 @@ Endpoint: `http://{MCP_HTTP_ADDR}/mcp`.
 | `CONFIG_DIR` | `…/SwissArmyNoife/.run` | Config + DB root (create the directory once) |
 | `LLM_BACKEND` | `echo` (no Ollama) or `ollama` | LLM offer backend |
 | `SANDBOX_BACKEND` | `none` (default host+jail), `stub` (CI, no spawn), `docker`, or `bwrap` (Linux-only) | Sandbox offer |
+| `BROWSER_BACKEND` | `stub` (CI full-protocol double) or `playwright` (Node sidecar + browsers) | `browser.session` full tool surface |
+| `BROWSER_SIDECAR` | (optional) path to `browser_sidecar.mjs` | Override Playwright sidecar script |
 | `RUST_LOG` | `mcp=warn,rmcp=warn` | Logging (stderr) |
 
 Full catalog: if you are in the Agentic workspace, see [`docs/env.md`](../../docs/env.md);

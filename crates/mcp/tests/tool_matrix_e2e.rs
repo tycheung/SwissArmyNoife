@@ -48,6 +48,25 @@ const EXPECTED_TOOLS: &[&str] = &[
     "tools_loop",
     "research_fetch",
     "research_brief",
+    "browser_navigate",
+    "browser_snapshot",
+    "browser_click",
+    "browser_type",
+    "browser_fill",
+    "browser_press_key",
+    "browser_scroll",
+    "browser_select_option",
+    "browser_drag",
+    "browser_mouse_click_xy",
+    "browser_take_screenshot",
+    "browser_highlight",
+    "browser_get_bounding_box",
+    "browser_tabs",
+    "browser_lock",
+    "browser_console",
+    "browser_network",
+    "browser_failure_report",
+    "browser_cdp",
     "module_list",
     "module_invoke",
     "capacity_probe",
@@ -77,6 +96,7 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
             c.env("CONFIG_DIR", &cfg)
                 .env("LLM_BACKEND", "echo")
                 .env("SANDBOX_BACKEND", "none")
+                .env("BROWSER_BACKEND", "stub")
                 .env("CAPACITY_PROBE", "fake");
         }))?)
         .await?;
@@ -244,7 +264,11 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         &call(
             &client,
             "bind",
-            json!({"offer_id": "sandbox.exec", "ttl_secs": 300}),
+            json!({
+                "offer_id": "sandbox.exec",
+                "ttl_secs": 300,
+                "policy": { "sandbox": { "shell": true } }
+            }),
         )
         .await?,
     )?;
@@ -590,6 +614,87 @@ async fn all_mcp_tools_happy_or_structured() -> Result<(), Box<dyn std::error::E
         )
         .await?,
         "status",
+    );
+
+    let browser_id = binding_id(
+        &call(
+            &client,
+            "bind",
+            json!({
+                "offer_id": "browser.session",
+                "ttl_secs": 300,
+                "policy": {
+                    "egress": {
+                        "allow_hosts": ["example.com"],
+                        "allow_principals": ["local"]
+                    }
+                }
+            }),
+        )
+        .await?,
+    )?;
+    assert_contains(
+        &call(
+            &client,
+            "browser_navigate",
+            json!({
+                "binding_id": browser_id,
+                "url": "https://example.com/"
+            }),
+        )
+        .await?,
+        "stub",
+    );
+    let snap = call(
+        &client,
+        "browser_snapshot",
+        json!({ "binding_id": browser_id }),
+    )
+    .await?;
+    assert!(
+        snap.contains("[e1]") && snap.contains("Stub page"),
+        "browser_snapshot={snap}"
+    );
+    assert_contains(
+        &call(
+            &client,
+            "browser_click",
+            json!({ "binding_id": browser_id, "ref": "e4" }),
+        )
+        .await?,
+        "ok",
+    );
+    assert_contains(
+        &call(
+            &client,
+            "browser_take_screenshot",
+            json!({ "binding_id": browser_id }),
+        )
+        .await?,
+        "path",
+    );
+    assert_contains(
+        &call(
+            &client,
+            "browser_failure_report",
+            json!({ "binding_id": browser_id, "step": "matrix" }),
+        )
+        .await?,
+        "screenshot_path",
+    );
+    let cdp_deny = call(
+        &client,
+        "browser_cdp",
+        json!({
+            "binding_id": browser_id,
+            "method": "Input.dispatchKeyEvent",
+            "params": {}
+        }),
+    )
+    .await?;
+    assert!(
+        cdp_deny.contains("denied") || cdp_deny.contains("policy"),
+        "browser_cdp Input deny={cdp_deny}"
     );
 
     let modules = call(&client, "module_list", json!({})).await?;

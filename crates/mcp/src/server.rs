@@ -100,7 +100,7 @@ impl McpServer {
         );
         let (fs, shell) = boot_fs_shell().expect("workspace tools boot");
         Self {
-            tool_router: Self::tool_router(),
+            tool_router: Self::tool_router() + Self::browser_tool_router(),
             catalog,
             bindings,
             provisions: Arc::new(Mutex::new(ProvisionStore::new())),
@@ -925,7 +925,7 @@ impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "SwissArmyNoife capability broker v21 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, rate_limit_status, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_resolve, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, eval_run, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
+                "SwissArmyNoife capability broker v23 (stdio ambient trust — no API key; HTTP uses MCP_HTTP_TOKEN). Tools: ping, broker_health, catalog_list, catalog_get, connections_list, audit_query, rate_limit_status, provision, bind, unbind, session_bind, invoke, llm_chat, llm_embed, llm_resolve, llm_preflight, ollama_manage, llm_telemetry, sandbox_exec, sandbox_jail, eval_run, fs_read, fs_write, fs_edit, fs_grep, shell_exec, egress_check, egress_fetch, memory_index, memory_embed, memory_scope, memory_search, tools_registry, tools_loop, research_fetch, research_brief, browser_navigate, browser_snapshot, browser_click, browser_type, browser_fill, browser_press_key, browser_scroll, browser_select_option, browser_drag, browser_mouse_click_xy, browser_take_screenshot, browser_highlight, browser_get_bounding_box, browser_tabs, browser_lock, browser_console, browser_network, browser_failure_report, browser_cdp, module_list, module_invoke, capacity_probe, capacity_pressure, capacity_fit, compute_node, compute_work. Resources: offer://{id}, binding://{id}."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder()

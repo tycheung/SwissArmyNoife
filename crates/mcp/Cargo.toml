@@ -41,6 +41,7 @@ offer-tools = { path = "../offer-tools" }
 offer-egress = { path = "../offer-egress" }
 offer-memory = { path = "../offer-memory" }
 offer-research = { path = "../offer-research" }
+offer-browser = { path = "../offer-browser" }
 offer-capacity = { path = "../offer-capacity" }
 offer-compute = { path = "../offer-compute" }
 offer-eval = { path = "../offer-eval" }

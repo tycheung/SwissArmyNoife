@@ -4,12 +4,15 @@ use rmcp::handler::server::common::schema_for_type;
 use serde_json::{json, Map, Value};
 
 use crate::tool_args::{
-    AuditQueryArgs, BindArgs, CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs,
-    CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs,
-    EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs, InvokeArgs, LlmChatToolArgs,
-    LlmEmbedArgs, LlmPreflightArgs, LlmResolveArgs, MemoryEmbedArgs, MemoryIndexArgs,
-    MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs, ProvisionArgs,
-    RateLimitStatusArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
+    AuditQueryArgs, BindArgs, BrowserCdpArgs, BrowserDragArgs, BrowserFailureReportArgs,
+    BrowserLockArgs, BrowserLogTailArgs, BrowserMouseXyArgs, BrowserNavigateArgs,
+    BrowserPressKeyArgs, BrowserRefArgs, BrowserScreenshotArgs, BrowserScrollArgs,
+    BrowserSelectArgs, BrowserSnapshotArgs, BrowserTabsArgs, BrowserTypeArgs, CapacityFitArgs,
+    CapacityPressureArgs, CapacityProbeArgs, CatalogGetArgs, ComputeNodeArgs, ComputeWorkArgs,
+    EgressCheckArgs, EgressFetchArgs, EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
+    InvokeArgs, LlmChatToolArgs, LlmEmbedArgs, LlmPreflightArgs, LlmResolveArgs, MemoryEmbedArgs,
+    MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ModuleInvokeArgs, OllamaManageArgs,
+    ProvisionArgs, RateLimitStatusArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxExecToolArgs,
     SandboxJailArgs, SessionBindArgs, ShellExecArgs, TelemetryArgs, ToolsLoopArgs,
     ToolsRegistryArgs, UnbindArgs,
 };
@@ -50,6 +53,25 @@ pub fn tool_input_schemas() -> Value {
     insert::<ToolsLoopArgs>(&mut m, "tools_loop");
     insert::<ResearchFetchArgs>(&mut m, "research_fetch");
     insert::<ResearchBriefArgs>(&mut m, "research_brief");
+    insert::<BrowserNavigateArgs>(&mut m, "browser_navigate");
+    insert::<BrowserSnapshotArgs>(&mut m, "browser_snapshot");
+    insert::<BrowserRefArgs>(&mut m, "browser_click");
+    insert::<BrowserTypeArgs>(&mut m, "browser_type");
+    insert::<BrowserTypeArgs>(&mut m, "browser_fill");
+    insert::<BrowserPressKeyArgs>(&mut m, "browser_press_key");
+    insert::<BrowserScrollArgs>(&mut m, "browser_scroll");
+    insert::<BrowserSelectArgs>(&mut m, "browser_select_option");
+    insert::<BrowserDragArgs>(&mut m, "browser_drag");
+    insert::<BrowserMouseXyArgs>(&mut m, "browser_mouse_click_xy");
+    insert::<BrowserScreenshotArgs>(&mut m, "browser_take_screenshot");
+    insert::<BrowserRefArgs>(&mut m, "browser_highlight");
+    insert::<BrowserRefArgs>(&mut m, "browser_get_bounding_box");
+    insert::<BrowserTabsArgs>(&mut m, "browser_tabs");
+    insert::<BrowserLockArgs>(&mut m, "browser_lock");
+    insert::<BrowserLogTailArgs>(&mut m, "browser_console");
+    insert::<BrowserLogTailArgs>(&mut m, "browser_network");
+    insert::<BrowserFailureReportArgs>(&mut m, "browser_failure_report");
+    insert::<BrowserCdpArgs>(&mut m, "browser_cdp");
     insert::<ModuleInvokeArgs>(&mut m, "module_invoke");
     insert::<CapacityProbeArgs>(&mut m, "capacity_probe");
     insert::<CapacityPressureArgs>(&mut m, "capacity_pressure");

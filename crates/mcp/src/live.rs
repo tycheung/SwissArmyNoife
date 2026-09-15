@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use control::CatalogRegistry;
+use offer_browser::BrowserSessionOffer;
 use offer_capacity::{CapacityFitOffer, CapacityPressureOffer, CapacityProbeOffer};
 use offer_compute::{ComputeNodeOffer, ComputePlane, ComputeWorkOffer};
 use offer_egress::{EgressCheckOffer, EgressFetchOffer};
@@ -43,6 +44,7 @@ pub struct LiveOffers {
     pub tools_loop: ToolsLoopOffer,
     pub research_fetch: ResearchFetchOffer<offer_egress::ReqwestGet>,
     pub research_brief: ResearchBriefOffer,
+    pub browser: BrowserSessionOffer,
     pub capacity_probe: CapacityProbeOffer,
     pub capacity_pressure: CapacityPressureOffer,
     pub capacity_fit: CapacityFitOffer,
@@ -106,6 +108,7 @@ impl LiveOffers {
             tools_loop: ToolsLoopOffer::with_defaults()?,
             research_fetch: ResearchFetchOffer::new()?,
             research_brief: ResearchBriefOffer::new()?,
+            browser: BrowserSessionOffer::from_env(env::config_dir().join("browser"))?,
             capacity_probe: CapacityProbeOffer::new(Arc::clone(&probe))?,
             capacity_pressure: CapacityPressureOffer::new(Arc::clone(&probe))?,
             capacity_fit: CapacityFitOffer::new(probe)?,
@@ -135,6 +138,7 @@ impl LiveOffers {
         catalog.register_offer(&self.tools_loop);
         catalog.register_offer(&self.research_fetch);
         catalog.register_offer(&self.research_brief);
+        catalog.register_offer(&self.browser);
         catalog.register_offer(&self.capacity_probe);
         catalog.register_offer(&self.capacity_pressure);
         catalog.register_offer(&self.capacity_fit);

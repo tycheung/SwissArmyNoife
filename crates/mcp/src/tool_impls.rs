@@ -2,10 +2,11 @@
 
 use crate::server::McpServer;
 use crate::tool_args::{
-    CapacityFitArgs, CapacityPressureArgs, CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs,
-    EgressCheckArgs, EgressFetchArgs, EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs,
-    MemoryEmbedArgs, MemoryIndexArgs, MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs,
-    ResearchFetchArgs, SandboxJailArgs, ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
+    BrowserNavigateArgs, BrowserSnapshotArgs, CapacityFitArgs, CapacityPressureArgs,
+    CapacityProbeArgs, ComputeNodeArgs, ComputeWorkArgs, EgressCheckArgs, EgressFetchArgs,
+    EvalRunArgs, FsEditArgs, FsGrepArgs, FsReadArgs, FsWriteArgs, MemoryEmbedArgs, MemoryIndexArgs,
+    MemoryScopeArgs, MemorySearchArgs, ResearchBriefArgs, ResearchFetchArgs, SandboxJailArgs,
+    ShellExecArgs, ToolsLoopArgs, ToolsRegistryArgs,
 };
 use crate::util::{parse_binding_id, serialize_resp};
 use crate::workspace_tools::{fs_err, mode_label, parse_read_mode};
@@ -306,6 +307,38 @@ impl McpServer {
             "limit": limit.unwrap_or(20),
         });
         let claim = OfferId::new("research.brief").expect("valid");
+        let resp = self
+            .dispatch_invoke(binding_id, invoke_args, Some(claim))
+            .await?;
+        serialize_resp(&resp)
+    }
+
+    pub(crate) async fn browser_navigate_inner(
+        &self,
+        args: BrowserNavigateArgs,
+    ) -> Result<String, McpError> {
+        self.browser_action(
+            &args.binding_id,
+            json!({ "action": "navigate", "url": args.url }),
+        )
+        .await
+    }
+
+    pub(crate) async fn browser_snapshot_inner(
+        &self,
+        args: BrowserSnapshotArgs,
+    ) -> Result<String, McpError> {
+        self.browser_action(&args.binding_id, json!({ "action": "snapshot" }))
+            .await
+    }
+
+    pub(crate) async fn browser_action(
+        &self,
+        binding_id: &str,
+        invoke_args: serde_json::Value,
+    ) -> Result<String, McpError> {
+        let binding_id = parse_binding_id(binding_id)?;
+        let claim = OfferId::new("browser.session").expect("valid");
         let resp = self
             .dispatch_invoke(binding_id, invoke_args, Some(claim))
             .await?;
