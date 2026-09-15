@@ -1,0 +1,9 @@
+{
+  "name": "sak-browser-sidecar",
+  "private": true,
+  "type": "module",
+  "description": "Optional Playwright sidecar for offer-browser (BROWSER_BACKEND=playwright)",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

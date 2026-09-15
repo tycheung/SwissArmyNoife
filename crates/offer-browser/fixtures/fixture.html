@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SAK Browser Fixture</title>
+</head>
+<body>
+  <h1>SAK Browser Fixture</h1>
+  <label>
+    Name
+    <input id="name" type="text" aria-label="Name" />
+  </label>
+  <button id="go" type="button">Go</button>
+  <p id="out" role="status">idle</p>
+  <script>
+    document.getElementById("go").addEventListener("click", () => {
+      const v = document.getElementById("name").value || "";
+      document.getElementById("out").textContent = "clicked:" + v;
+      console.error("fixture-console-error:" + v);
+    });
+  </script>
+</body>
+</html>

@@ -1557,6 +1557,7 @@ dependencies = [
  "env",
  "http",
  "module-registry",
+ "offer-browser",
  "offer-capacity",
  "offer-compute",
  "offer-egress",
@@ -1776,6 +1777,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "offer-browser"
+version = "0.1.0"
+dependencies = [
+ "control",
+ "offer-egress",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "types",
 ]
 
 [[package]]
