@@ -1,9 +1,10 @@
 # SwissArmyNoife
 
-A **local-first capability broker**: install it once, then any MCP-capable harness can call
-tools like chat, sandbox, filesystem, memory, and research.
+Local-first **capability broker** for agent harnesses. Install once; any MCP-capable client can catalog, bind, and invoke tools (chat, sandbox, filesystem, memory, research, and more).
 
-Shorthand in docs: **sak**. License: **Apache-2.0** ([LICENSE](LICENSE)).
+Shorthand in docs: **sak**.  
+**Repo:** [github.com/tycheung/SwissArmyNoife](https://github.com/tycheung/SwissArmyNoife)  
+**License:** Apache-2.0 ([LICENSE](LICENSE))
 
 ## Quick start
 
@@ -13,18 +14,18 @@ cargo build -p mcp
 cargo run -p cli -- hello
 ```
 
-Start / register the MCP server with your client:
+Register the MCP server with your client:
 
-→ **[docs/mcp-setup.md](docs/mcp-setup.md)** — build, env, stdio vs HTTP (harness-agnostic).
+→ **[docs/mcp-setup.md](docs/mcp-setup.md)** (build, env, stdio vs HTTP; harness-agnostic)
 
-Smoke checks and CI:
+Smoke checks:
 
 ```bash
 .\scripts\ci_check.ps1    # Windows
 ./scripts/ci_check.sh     # Unix
 ```
 
-More: [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md).
+More: [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
 ## What it provides
 
@@ -42,5 +43,4 @@ More: [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md).
 | Example client configs | [examples/](examples/) |
 | Control coverage | [docs/control-coverage.md](docs/control-coverage.md) |
 
-When developing inside the broader Agentic workspace, also see sibling docs for env vars,
-CI matrix, and marketplace: `../docs/` (not published with this repo alone).
+When developing inside a broader Agentic workspace, sibling docs under `../docs/` may cover shared env vars and CI. Those are not required to use this repo alone.
